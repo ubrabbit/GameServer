@@ -1,0 +1,16 @@
+syntax = "proto3";
+package ProtoHello;
+
+option optimize_for = LITE_RUNTIME;
+
+message CSHello {
+	int32   id = 1;
+    string  content = 2;
+}
+
+message CSHelloRsp {
+	int32  id = 1;
+    string content = 2;
+    uint64 unpack_timestamp = 3;
+    uint64 logic_timestamp = 4;
+}

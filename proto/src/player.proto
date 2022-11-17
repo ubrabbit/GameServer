@@ -1,0 +1,9 @@
+syntax = "proto3";
+package ProtoPlayer;
+
+option optimize_for = LITE_RUNTIME;
+
+message COMDT_Player {
+	int32 	pid = 1;
+	string 	name = 2;
+}
