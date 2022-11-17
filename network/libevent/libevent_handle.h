@@ -13,7 +13,7 @@
 #include "common/defines.h"
 #include "common/logger.h"
 #include "network/defines.h"
-#include "network/pool.h"
+#include "network/context.h"
 #include "libevent_ctx.h"
 
 namespace network {
@@ -21,7 +21,7 @@ namespace network {
 typedef struct ST_LibeventEventHandle
 {
 	struct event_base* 		m_pstEventBase;
-	ServerNetBufferCtx* 	m_pstServerCtx;
+	ServerContext* 			m_pstServerCtx;
 
 	ST_LibeventEventHandle()
 	{

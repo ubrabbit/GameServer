@@ -21,7 +21,7 @@ void OnRecvNetCmdCtrl(int32_t iRecvCtrlFd, short events, void* pstVoidEventHandl
 	OnExecuteNetCmdCtrl(pstEventHandle->m_pstEventBase, *(pstEventHandle->m_pstServerCtx), iRecvCtrlFd, *pstNetCmd);
 }
 
-void OnExecuteNetCmdCtrl(struct event_base* pstEventBase, ServerNetBufferCtx& rstServerCtx, int32_t iRecvCtrlFd, struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
+void OnExecuteNetCmdCtrl(struct event_base* pstEventBase, ServerContext& rstServerCtx, int32_t iRecvCtrlFd, struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
 {
 	BYTE bchNetCmd = rstNetCmd.GetCmd();
 
@@ -40,13 +40,13 @@ void OnExecuteNetCmdCtrl(struct event_base* pstEventBase, ServerNetBufferCtx& rs
 }
 
 #define NETWORK_CMD_SEND_PACKET_CACHE_SIZE (100)
-size_t ExecuteCmdSendAllPacket(ServerNetBufferCtx& rstServerCtx, struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
+size_t ExecuteCmdSendAllPacket(ServerContext& rstServerCtx, struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
 {
 	size_t dwStartTime = GetMilliSecond();
 	//LOGINFO("ExecuteCmdSendAllPacket Start: {}", iStart);
 
 	std::vector<NetPacketBuffer> vecNetPacketSendBuffer;
-	rstServerCtx.PacketSendPrepare(vecNetPacketSendBuffer);
+	rstServerCtx.CopyPacketsFromLogicToNet(vecNetPacketSendBuffer);
 
 	int32_t iTotalPackets = vecNetPacketSendBuffer.size();
 	for(auto it=vecNetPacketSendBuffer.begin(); it!=vecNetPacketSendBuffer.end(); it++)

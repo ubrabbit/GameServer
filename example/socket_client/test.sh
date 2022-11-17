@@ -5,7 +5,7 @@
 
 START_TIME=`date +%s`
 
-PROCESS_NUM=20
+PROCESS_NUM=50
 for ((I=1;I<=${PROCESS_NUM};I++))
 do
     {

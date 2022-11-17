@@ -13,7 +13,7 @@
 
 #include "network/defines.h"
 #include "network/packet.h"
-#include "network/pool.h"
+#include "network/context.h"
 
 
 namespace network {
@@ -26,7 +26,7 @@ public:
 	evutil_socket_t 		m_iClientFd;
 	struct bufferevent*		m_pstBufferEvent;
 
-	ServerNetBufferCtx* 	m_pstServerCtx;
+	ServerContext* 			m_pstServerCtx;
 
 	int32_t m_iBufferSize;
 	BYTE    m_chBuffer[NETWORK_PACKET_BUFFER_READ_SIZE * 10];
@@ -44,7 +44,7 @@ public:
 		}
 	}
 
-	void Init(evutil_socket_t iClientFd, struct bufferevent* pstBufferEvent, ServerNetBufferCtx* pstServerCtx)
+	void Init(evutil_socket_t iClientFd, struct bufferevent* pstBufferEvent, ServerContext* pstServerCtx)
 	{
 		m_iClientFd = iClientFd;
 		m_pstBufferEvent = pstBufferEvent;
@@ -70,7 +70,7 @@ public:
 		return 0;
 	}
 
-    int32_t UnpackPacketFromRecvBuffer(ServerNetBufferCtx& rstServerCtx)
+    int32_t UnpackPacketFromRecvBuffer(ServerContext& rstServerCtx)
 	{
 		size_t dwStartTime = GetMilliSecond();
 		int32_t iTotalPackets = 0;
@@ -95,12 +95,7 @@ public:
 			}
 
 			BYTE* pstBufferData = pchBufferPtr + NETWORK_PACKET_HEADER_SIZE;
-			NetPacketBuffer* pstPacket = rstServerCtx.RequireNetPacketSlot(m_iClientFd, (int16_t)iProtoNo, (int16_t)wBodySize, pstBufferData);
-			if(NULL == pstPacket)
-			{
-				LOGFATAL("client<{}> recv packet but net buffer is full!.", m_iClientFd);
-				return -1;
-			}
+			rstServerCtx.AddPacketToRecvQueue(m_iClientFd, (int16_t)iProtoNo, (int16_t)wBodySize, pstBufferData);
 
 			pchBufferPtr += iPacketSize;
 			iLeftSize -= iPacketSize;

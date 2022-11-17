@@ -63,7 +63,7 @@ void LibeventServer::PrintSupportMethod()
     }
 }
 
-bool LibeventServer::_InitEventBase(ServerNetBufferCtx& rstServerCtx, int32_t iRecvCtrlFd)
+bool LibeventServer::_InitEventBase(ServerContext& rstServerCtx, int32_t iRecvCtrlFd)
 {
 	//if use multi_threads ,must call this before any event created.
 	evthread_use_pthreads();
@@ -108,7 +108,7 @@ bool LibeventServer::_InitEventBase(ServerNetBufferCtx& rstServerCtx, int32_t iR
     return true;
 }
 
-bool LibeventServer::_InitListener(struct ST_ServerIPInfo& rstServerIPInfo, ServerNetBufferCtx& rstServerCtx)
+bool LibeventServer::_InitListener(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx)
 {
     LOGINFO("start listern {}:{}", rstServerIPInfo.m_achServerIP, rstServerIPInfo.m_wServerPort);
 
@@ -133,7 +133,7 @@ bool LibeventServer::_InitListener(struct ST_ServerIPInfo& rstServerIPInfo, Serv
     return true;
 }
 
-void LibeventServer::Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerNetBufferCtx& rstServerCtx, int32_t iRecvCtrlFd)
+void LibeventServer::Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx, int32_t iRecvCtrlFd)
 {
     if(false == _InitEventBase(rstServerCtx, iRecvCtrlFd))
     {

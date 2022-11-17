@@ -18,7 +18,7 @@ void Server::_InitPipeFd(int32_t& iFdRead, int32_t& iFdWrite)
 bool Server::StartServer(struct ST_ServerIPInfo& rstServerIPInfo)
 {
     _InitPipeFd(m_iRecvCtrlFd, m_iSendCtrlFd);
-    m_stLibeventServer.Init(rstServerIPInfo, m_stServerRecvCtx, m_iRecvCtrlFd);
+    m_stLibeventServer.Init(rstServerIPInfo, m_stServerCtx, m_iRecvCtrlFd);
     ServerMonitor::Instance().Inited();
 
     m_stLibeventServer.StartEventLoop();
@@ -27,10 +27,6 @@ bool Server::StartServer(struct ST_ServerIPInfo& rstServerIPInfo)
 
 void Server::SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
 {
-    if(false == m_stServerRecvCtx.HasPacketToSend())
-    {
-        return;
-    }
     for(;;)
     {
         const char* pchRequest = (const char*)&rstNetCmd;

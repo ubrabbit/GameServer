@@ -51,7 +51,7 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 	bufferevent_set_max_single_read(pstEvtObj, NETWORK_PACKET_BUFFER_READ_SIZE);
 	bufferevent_set_max_single_write(pstEvtObj, NETWORK_PACKET_BUFFER_READ_SIZE);
 
-	ServerNetBufferCtx* pstServerCtx = (ServerNetBufferCtx*)pstVoidServerCtx;
+	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
 	assert(pstServerCtx);
 
 	LibeventClientCtx* pstClientCtx = new LibeventClientCtx();
@@ -96,7 +96,7 @@ void OnBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidClientCtx)
 		return;
 	}
 
-	ServerNetBufferCtx* pstServerCtx = pstClientCtx->m_pstServerCtx;
+	ServerContext* pstServerCtx = pstClientCtx->m_pstServerCtx;
 	assert(pstServerCtx);
 
 	iRet = pstClientCtx->UnpackPacketFromRecvBuffer(*pstServerCtx);
@@ -146,7 +146,7 @@ void CloseClient(LibeventClientCtx* pstClientCtx)
 
 	LOGINFO("client<{}> closed.", (int32_t)pstClientCtx->m_iClientFd);
 
-	ServerNetBufferCtx* pstServerCtx = pstClientCtx->m_pstServerCtx;
+	ServerContext* pstServerCtx = pstClientCtx->m_pstServerCtx;
 	assert(pstServerCtx);
 
 	pstServerCtx->m_stClientPool.RemoveClient((int32_t)pstClientCtx->m_iClientFd);

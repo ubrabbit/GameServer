@@ -6,7 +6,8 @@
 #include "common/utils/spinlock.h"
 #include "network/defines.h"
 #include "network/unpack.h"
-#include "network/pool.h"
+#include "network/context.h"
+#include "network/queue.h"
 #include "network/libevent/libevent_server.h"
 
 
@@ -37,10 +38,7 @@ public:
 
     LibeventServer          m_stLibeventServer;
 
-    ServerNetBufferCtx      m_stServerRecvCtx;
-
-    // 逻辑线程收包缓存
-    ST_PacketBufferPool     m_stLogicRecvBufferPool;
+    ServerContext           m_stServerCtx;
 
     bool StartServer(struct ST_ServerIPInfo& rstServerIPInfo);
 

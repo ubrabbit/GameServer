@@ -13,7 +13,7 @@
 #include "common/utils/time.h"
 #include "network/defines.h"
 #include "network/unpack.h"
-#include "network/pool.h"
+#include "network/context.h"
 #include "libevent_ctx.h"
 #include "libevent_handle.h"
 
@@ -21,10 +21,10 @@ namespace network {
 
 void OnRecvNetCmdCtrl(int32_t iRecvCtrlFd, short events, void* pstVoidServerCtx);
 
-void OnExecuteNetCmdCtrl(struct event_base* pstEventBase, ServerNetBufferCtx& rstServerCtx, int32_t iRecvCtrlFd, struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
+void OnExecuteNetCmdCtrl(struct event_base* pstEventBase, ServerContext& rstServerCtx, int32_t iRecvCtrlFd, struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
 
 void ExecuteCmdCloseEventLoop(struct event_base* pstEventBase);
 
-size_t ExecuteCmdSendAllPacket(ServerNetBufferCtx& rstServerCtx, struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
+size_t ExecuteCmdSendAllPacket(ServerContext& rstServerCtx, struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
 
 } // namespace network

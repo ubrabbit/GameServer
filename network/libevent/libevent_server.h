@@ -19,7 +19,7 @@
 
 #include "common/defines.h"
 #include "network/defines.h"
-#include "network/pool.h"
+#include "network/context.h"
 #include "libevent_handle.h"
 #include "libevent_cmd.h"
 #include "libevent_ctx.h"
@@ -35,14 +35,14 @@ public:
     LibeventServer();
     ~LibeventServer();
 
-    void Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerNetBufferCtx& rstServerCtx, int32_t iRecvCtrlFd);
+    void Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx, int32_t iRecvCtrlFd);
     void StartEventLoop();
 
     void PrintSupportMethod();
 
 private:
-    bool _InitEventBase(ServerNetBufferCtx& rstServerCtx, int32_t iRecvCtrlFd);
-    bool _InitListener(struct ST_ServerIPInfo& rstServerIPInfo, ServerNetBufferCtx& rstServerCtx);
+    bool _InitEventBase(ServerContext& rstServerCtx, int32_t iRecvCtrlFd);
+    bool _InitListener(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx);
 
     void _InitEventMgr();
     void _ReleaseEventMgr();
