@@ -21,22 +21,25 @@
 #include "network/defines.h"
 #include "network/context.h"
 #include "libevent_handle.h"
-#include "libevent_cmd.h"
 #include "libevent_ctx.h"
 
 
-namespace network {
+namespace network
+{
 
-class LibeventServer
+class LibeventServer : public NertworkServer
 {
 public:
-    ST_LibeventEventHandle m_stEventHandle;
+    int32_t                 m_iRecvCtrlFd;
+    int32_t                 m_iSendCtrlFd;
 
     LibeventServer();
     ~LibeventServer();
 
-    void Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx, int32_t iRecvCtrlFd);
+    void Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx);
     void StartEventLoop();
+    void SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
+    void RecvNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
 
     void PrintSupportMethod();
 
@@ -47,9 +50,12 @@ private:
     void _InitEventMgr();
     void _ReleaseEventMgr();
 
+    ServerContext*          m_pstServerCtx;
     struct event_base*      m_pstEventBase;
     struct evconnlistener*  m_pstListener;
 
 };
+
+void OnRecvNetCmdCtrl(int32_t iRecvCtrlFd, short events, void* pstVoidServer);
 
 } // namespace network

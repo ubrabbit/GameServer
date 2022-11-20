@@ -18,6 +18,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <assert.h>
+#include <endian.h>
 
 #include <map>
 #include<iostream>
@@ -46,7 +47,7 @@ size_t GetMilliSecond() {
 	return t;
 }
 
-#define MAX_TEST_PACKET_NUMBER (1 * 10000)
+#define MAX_TEST_PACKET_NUMBER (1 * 1000)
 #define PROTO_HEADER_SIZE (sizeof(int16_t) * 2)
 #define PROTO_TAIL_SIZE (sizeof(size_t))
 
@@ -84,6 +85,7 @@ public:
 		m_iServerRspCost = m_iClientRecvTime - rstHelloRsp.unpack_timestamp();
 
 		m_iServerLogicInternalCost = rstHelloRsp.logic_timestamp() - rstHelloRsp.unpack_timestamp();
+
 		m_iServerNetInternalCost = iServerInternalTimestamp - rstHelloRsp.logic_timestamp();
 	}
 

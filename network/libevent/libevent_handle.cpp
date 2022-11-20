@@ -28,10 +28,13 @@ void OnFatalError(int iError)
 void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t iClientFd,
 				             struct sockaddr* pstSockAddr, socklen_t iSockLen, void* pstVoidServerCtx)
 {
-    LOGINFO("recv new connect, sockfd<{}>", (int)iClientFd);
-
 	struct event_base* pstEvtBase = evconnlistener_get_base(pstListener);
 	assert(pstEvtBase);
+
+	struct sockaddr_in stClientAddr;
+	socklen_t dwAddrLen = sizeof(stClientAddr);
+	getpeername(iClientFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
+	LOGINFO("client<{}><{}:{}> accept connect.", iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
 
 	struct bufferevent *pstEvtObj = bufferevent_socket_new(pstEvtBase, iClientFd, BEV_OPT_CLOSE_ON_FREE);
 	if(NULL == pstEvtObj){
@@ -47,6 +50,7 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 		return;
 	}
 
+	LOGINFO("client<{}><{}:{}> accept connect success.", iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
 	// 设置单次读写包的大小
 	bufferevent_set_max_single_read(pstEvtObj, NETWORK_PACKET_BUFFER_READ_SIZE);
 	bufferevent_set_max_single_write(pstEvtObj, NETWORK_PACKET_BUFFER_READ_SIZE);
@@ -55,101 +59,127 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 	assert(pstServerCtx);
 
 	LibeventClientCtx* pstClientCtx = new LibeventClientCtx();
-	pstClientCtx->Init(iClientFd, pstEvtObj, pstServerCtx);
+	pstClientCtx->Init(iClientFd, pstEvtObj);
+	pstClientCtx->SetClientIP(stClientAddr);
+	pstServerCtx->m_stClientPool.AddClient((int)iClientFd, pstClientCtx);
 
-	pstServerCtx->m_stClientPool.AddClient((int)iClientFd, (void*)pstClientCtx);
-
-	bufferevent_setcb(pstEvtObj, OnBufferEventRead, OnBufferEventWrite, OnBufferEventTrigger, pstClientCtx);
+	bufferevent_setcb(pstEvtObj, OnBufferEventRead, OnBufferEventWrite, OnBufferEventTrigger, pstServerCtx);
 	//EV_PERSIST可以让注册的事件在执行完后不被删除,直到调用event_del()删除
 	bufferevent_enable(pstEvtObj, EV_READ|EV_WRITE|EV_PERSIST);
 }
 
-void OnListenerAcceptError(struct evconnlistener* pstListener, void* pstVoidEventHandle)
+void OnListenerAcceptError(struct evconnlistener* pstListener, void* pstVoidServerCtx)
 {
 	evutil_socket_t iListenFd = evconnlistener_get_fd(pstListener);
 	int iError = EVUTIL_SOCKET_ERROR();
-	LOGERROR("listener {} accept error: {}({})", (int)iListenFd, iError, evutil_socket_error_to_string(iError));
+
+	struct sockaddr_in stClientAddr;
+	socklen_t dwAddrLen = sizeof(stClientAddr);
+	getpeername(iListenFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
+	LOGERROR("client<{}><{}:{}> accept error: {}({})", (int)iListenFd,
+			inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+			iError, evutil_socket_error_to_string(iError));
 
 	struct event_base* pstEvtBase = evconnlistener_get_base(pstListener);
 	assert(pstEvtBase);
-
 	event_base_loopexit(pstEvtBase, NULL);
 }
 
-void OnBufferEventWrite(struct bufferevent* pstEvtobj, void* pstVoidClientCtx)
+void OnBufferEventWrite(struct bufferevent* pstEvtobj, void* pstVoidServerCtx)
 {
-	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)pstVoidClientCtx;
 }
 
-void OnBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidClientCtx)
+void OnBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidServerCtx)
 {
 	evutil_socket_t	iClientFd = bufferevent_getfd(pstEvtobj);
-
-	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)pstVoidClientCtx;
-	assert(pstClientCtx);
-
-	int32_t iRet = 0;
-	iRet = pstClientCtx->ReadToRecvBuffer(pstEvtobj);
-	if(0 != iRet)
-	{
-		CloseClient(pstClientCtx);
-		return;
-	}
-
-	ServerContext* pstServerCtx = pstClientCtx->m_pstServerCtx;
+	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
 	assert(pstServerCtx);
+	ServerContext& rstServerCtx = *pstServerCtx;
 
-	iRet = pstClientCtx->UnpackPacketFromRecvBuffer(*pstServerCtx);
-	if(0 != iRet)
+	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)(rstServerCtx.m_stClientPool.GetClient(iClientFd));
+	if(NULL == pstClientCtx)
 	{
-		CloseClient(pstClientCtx);
+		struct sockaddr_in stClientAddr;
+		socklen_t dwAddrLen = sizeof(stClientAddr);
+		getpeername(iClientFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
+		int32_t iErrCode = evutil_socket_geterror(iClientFd);
+		LOGERROR("client<{}><{}:{}> read error: {}({})", (int)iClientFd,
+				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+				iErrCode, evutil_socket_error_to_string(iErrCode));
 		return;
 	}
+
+	int32_t iReadLen = 0;
+	do{
+		iReadLen = pstClientCtx->ReadToRecvBuffer(pstEvtobj);
+		int32_t iRet = rstServerCtx.ExecuteCmdRecvAllPacket(pstClientCtx);
+		if(0 != iRet)
+		{
+			CloseClient(rstServerCtx, *pstClientCtx);
+			return;
+		}
+		//第一次read缓冲区可能满了，正常情况下会解包空出空间，所以再收一次
+		iReadLen = pstClientCtx->ReadToRecvBuffer(pstEvtobj);
+	}while(iReadLen > 0);
 
 }
 
-void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pstVoidClientCtx)
+void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pstVoidServerCtx)
 {
-    evutil_socket_t	iSockFd = bufferevent_getfd(pstEvtobj);
+	evutil_socket_t	iClientFd = bufferevent_getfd(pstEvtobj);
+	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
+	assert(pstServerCtx);
+	ServerContext& rstServerCtx = *pstServerCtx;
+
+	struct sockaddr_in stClientAddr;
+	socklen_t dwAddrLen = sizeof(stClientAddr);
+	getpeername(iClientFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
+
+	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)rstServerCtx.m_stClientPool.GetClient(iClientFd);
+	if(NULL == pstClientCtx)
+	{
+		int32_t iErrCode = evutil_socket_geterror(iClientFd);
+		LOGERROR("client<{}><{}:{}> read error: {}({})", (int)iClientFd,
+				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+				iErrCode, evutil_socket_error_to_string(iErrCode));
+		return;
+	}
 
 	bool bEventFree = false;
 	if(wEvent & BEV_EVENT_TIMEOUT){
-		LOGINFO("client<{}> socket timeout.", (int32_t)iSockFd);
 		bEventFree = true;
 	}
 	if(wEvent & BEV_EVENT_EOF){
-        LOGINFO("client<{}> connection closed.", (int32_t)iSockFd);
 		bEventFree = true;
 	}
 	if(wEvent & BEV_EVENT_ERROR){
-        LOGINFO("client<{}> socket error.", (int32_t)iSockFd);
 		bEventFree = true;
 	}
 
 	if(bEventFree)
 	{
-		LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)pstVoidClientCtx;
-		int32_t iErrCode = evutil_socket_geterror(iSockFd);
-		LOGINFO("client<{}> closed by error<{}><{}>", (int32_t)iSockFd, iErrCode, evutil_socket_error_to_string(iErrCode));
-		CloseClient(pstClientCtx);
+		int32_t iErrCode = evutil_socket_geterror(iClientFd);
+		LOGINFO("client<{}><{}:{}> closed by event<{}> error<{}><{}>", (int32_t)iClientFd,
+				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+				wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
+		CloseClient(rstServerCtx, *pstClientCtx);
+	}
+	else
+	{
+		int32_t iErrCode = evutil_socket_geterror(iClientFd);
+		LOGINFO("client<{}><{}:{}> occur event<{}> error <{}><{}>", (int32_t)iClientFd,
+				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+				wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
 	}
 }
 
 
-void CloseClient(LibeventClientCtx* pstClientCtx)
+void CloseClient(ServerContext& rstServerCtx, LibeventClientCtx& rstClientCtx)
 {
-	if(NULL == pstClientCtx)
-	{
-		LOGERROR("clost client buf ptr is NULL!");
-		return;
-	}
+	LOGINFO("client<{}> closed.", (int32_t)rstClientCtx.GetClientFd());
+	rstServerCtx.m_stClientPool.RemoveClient((int32_t)rstClientCtx.GetClientFd());
 
-	LOGINFO("client<{}> closed.", (int32_t)pstClientCtx->m_iClientFd);
-
-	ServerContext* pstServerCtx = pstClientCtx->m_pstServerCtx;
-	assert(pstServerCtx);
-
-	pstServerCtx->m_stClientPool.RemoveClient((int32_t)pstClientCtx->m_iClientFd);
+	LibeventClientCtx* pstClientCtx = &rstClientCtx;
 	delete pstClientCtx;
 }
 

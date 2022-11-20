@@ -5,7 +5,12 @@
 
 START_TIME=`date +%s`
 
-PROCESS_NUM=50
+COUNT=$1
+if [ -z "${COUNT}" ]; then
+    COUNT=2
+fi
+
+PROCESS_NUM="${COUNT}"
 for ((I=1;I<=${PROCESS_NUM};I++))
 do
     {

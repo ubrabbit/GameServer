@@ -4,11 +4,13 @@
 #include "common/singleton.h"
 #include "common/conf/config.h"
 #include "common/utils/spinlock.h"
+#include "common/utils/posix.h"
 #include "network/defines.h"
 #include "network/unpack.h"
 #include "network/context.h"
 #include "network/queue.h"
 #include "network/libevent/libevent_server.h"
+#include "network/socket/server_logic.h"
 
 
 namespace network {
@@ -33,19 +35,16 @@ public:
 class Server
 {
 public:
-    int32_t                 m_iRecvCtrlFd;
-    int32_t                 m_iSendCtrlFd;
 
-    LibeventServer          m_stLibeventServer;
-
+    NertworkServer*         m_pstServer;
     ServerContext           m_stServerCtx;
 
     bool StartServer(struct ST_ServerIPInfo& rstServerIPInfo);
 
-    void SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
+    bool StartLibeventServer(struct ST_ServerIPInfo& rstServerIPInfo);
+    bool StartSocketServer(struct ST_ServerIPInfo& rstServerIPInfo);
 
-private:
-    void _InitPipeFd(int32_t& iFdRead, int32_t& iFdWrite);
+    void SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
 
 };
 

@@ -2,7 +2,7 @@
 
 #include "common/utils/time.h"
 #include "defines.h"
-
+#include "unpack.h"
 
 namespace network {
 
@@ -115,6 +115,17 @@ public:
         }
 
         return m_achBytesArray;
+    }
+
+    void PrepareHeader(BYTE (&pchBuffer)[NETWORK_PACKET_HEADER_SIZE])
+    {
+		PackInt(pchBuffer, (int16_t)(GetBufferSize() + NETWORK_PACKET_HEADER_SIZE + NETWORK_PACKET_TAIL_SIZE));
+		PackInt(pchBuffer + sizeof(int16_t), (int16_t)GetProtoNo());
+    }
+
+    void PrepareTail(BYTE (&pchBuffer)[NETWORK_PACKET_TAIL_SIZE])
+    {
+		PackInt(pchBuffer, (size_t)GetMilliSecond());
     }
 
 };

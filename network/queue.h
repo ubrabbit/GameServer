@@ -19,7 +19,7 @@ namespace network {
 class NetPacketQueue
 {
 public:
-    int32_t                       m_iPacketRecvNum;
+    int32_t                       m_iPacketNum;
     std::vector<NetPacketBuffer>  m_vecPacketPool;
 
     NetPacketQueue()
@@ -34,19 +34,19 @@ public:
 
 	int32_t Size()
 	{
-        return m_iPacketRecvNum;
+        return m_iPacketNum;
 	}
 
     void Init()
     {
         m_vecPacketPool.reserve(NETWORK_PACKET_BUFFER_POOL_SIZE);
         m_vecPacketPool.shrink_to_fit();
-        m_iPacketRecvNum = 0;
+        m_iPacketNum = 0;
     }
 
     int32_t CopyFrom(NetPacketQueue& rstPacketQueue)
     {
-        if (m_iPacketRecvNum > 0)
+        if (m_iPacketNum > 0)
         {
             for(int32_t i=0; i<rstPacketQueue.Size(); i++)
             {
@@ -56,38 +56,38 @@ public:
         else
         {
             m_vecPacketPool.swap(rstPacketQueue.m_vecPacketPool);
-            m_iPacketRecvNum = rstPacketQueue.m_iPacketRecvNum;
+            m_iPacketNum = rstPacketQueue.m_iPacketNum;
         }
         rstPacketQueue.Init();
-        return m_iPacketRecvNum;
+        return m_iPacketNum;
     }
 
     int32_t AddPacket(int32_t iSockFd, int16_t wProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
 	{
-        if(m_iPacketRecvNum >= (int32_t)m_vecPacketPool.size())
+        if(m_iPacketNum >= (int32_t)m_vecPacketPool.size())
         {
             m_vecPacketPool.emplace_back(iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
         }
         else
         {
-            m_vecPacketPool[m_iPacketRecvNum].Init(iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
+            m_vecPacketPool[m_iPacketNum].Init(iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
         }
-		m_iPacketRecvNum++;
-		return m_iPacketRecvNum;
+		m_iPacketNum++;
+		return m_iPacketNum;
 	}
 
     int32_t AddPacket(NetPacketBuffer& rstPacket)
 	{
-        if(m_iPacketRecvNum >= (int32_t)m_vecPacketPool.size())
+        if(m_iPacketNum >= (int32_t)m_vecPacketPool.size())
         {
             m_vecPacketPool.emplace_back(rstPacket);
         }
         else
         {
-            m_vecPacketPool[m_iPacketRecvNum] = rstPacket;
+            m_vecPacketPool[m_iPacketNum] = rstPacket;
         }
-		m_iPacketRecvNum++;
-		return m_iPacketRecvNum;
+		m_iPacketNum++;
+		return m_iPacketNum;
 	}
 
 };

@@ -51,7 +51,7 @@ void GameLogic::_ProcessCSNetworkPacket(Gamesvr& rstGamesvr)
     Server& rstServer = rstGamesvr.m_stMainServer;
     ServerContext& rstServerCtx = rstServer.m_stServerCtx;
 
-    int32_t iPacketNum = rstServerCtx.PacketCopyFromNetToLogic();
+    int32_t iPacketNum = rstServerCtx.CopyPacketsFromNetToLogic();
     NetPacketQueue& rstPacketLogicQueue = rstServerCtx.m_stNetPacketLogicQueue;
     struct ST_NETWORK_CMD_REQUEST stNetCmd(NETWORK_CMD_REQUEST_SEND_ALL_PACKET);
     // 用下标出错直接coredump，用迭代器可能会写出惊天奇BUG
@@ -62,13 +62,16 @@ void GameLogic::_ProcessCSNetworkPacket(Gamesvr& rstGamesvr)
 
         if(i > 0 && i % 1000 == 0)
         {
-            rstServerCtx.PacketSendPrepare();
-            rstServer.SendNetworkCmd(stNetCmd);
+            if(rstServerCtx.PacketSendPrepare() > 0)
+            {
+                rstServer.SendNetworkCmd(stNetCmd);
+            }
         }
     }
-
-    rstServerCtx.PacketSendPrepare();
-    rstServer.SendNetworkCmd(stNetCmd);
+    if(rstServerCtx.PacketSendPrepare() > 0)
+    {
+        rstServer.SendNetworkCmd(stNetCmd);
+    }
 
     size_t dwCostTime = GetMilliSecond() - dwStartTime;
     if(iPacketNum > 0)

@@ -7,7 +7,7 @@
 
 #ifdef OS_LINUX
 
-struct in_addr getHostByName(const std::string &host) {
+struct in_addr GetHostByName(const std::string &host) {
     struct in_addr addr;
     char buf[1024];
     struct hostent hent;
@@ -22,12 +22,15 @@ struct in_addr getHostByName(const std::string &host) {
     }
     return addr;
 }
-uint64_t gettid() {
+
+
+uint64_t GetThreadId() {
     return syscall(SYS_gettid);
 }
 
+
 #elif defined(OS_MACOSX)
-struct in_addr getHostByName(const std::string &host) {
+struct in_addr GetHostByName(const std::string &host) {
     struct in_addr addr;
     struct hostent *he = gethostbyname(host.c_str());
     if (he && he->h_addrtype == AF_INET) {
@@ -37,10 +40,25 @@ struct in_addr getHostByName(const std::string &host) {
     }
     return addr;
 }
-uint64_t gettid() {
+
+uint64_t GetThreadId() {
     pthread_t tid = pthread_self();
     uint64_t uid = 0;
     memcpy(&uid, &tid, std::min(sizeof(tid), sizeof(uid)));
     return uid;
 }
-#endif
+
+#endif  // #ifdef OS_LINUX
+
+bool CreatePipe(int32_t& iFdRead, int32_t& iFdWrite)
+{
+    int iPipeFd[2];
+	if(pipe(iPipeFd))
+    {
+		return false;
+	}
+    iFdRead = iPipeFd[0];
+    iFdWrite = iPipeFd[1];
+
+    return true;
+}

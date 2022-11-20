@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include "defines.h"
+#include "common/utils/posix.h"
+
 
 #pragma pack(1)
 
@@ -42,7 +44,7 @@ T PackInt(P* buffer, T value)
 	switch(iSize)
     {
     case 8:
-        value = htobe64(value);
+        value = htobe64((uint64_t)value);
         memcpy(buffer, &value, iSize);
         break;
     case 4:

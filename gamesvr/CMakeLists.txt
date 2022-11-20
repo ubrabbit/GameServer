@@ -5,7 +5,7 @@ set(SOURCE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(THIRDLIB_ROOT_DIR ${SOURCE_ROOT_DIR}/dependency/thirdlib)
 
 set(PROJECT_NAME gamesvr)
-project(${PROJECT_NAME} LANGUAGES CXX)
+project(${PROJECT_NAME} LANGUAGES CXX C)
 
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 11)
@@ -42,6 +42,7 @@ aux_source_directory(${SOURCE_ROOT_DIR}/common/utils SOURCES_COMMON_UTILS)
 
 aux_source_directory(${SOURCE_ROOT_DIR}/network SOURCES_NETWORK)
 aux_source_directory(${SOURCE_ROOT_DIR}/network/libevent SOURCES_NETWORK_LIBEVENT)
+aux_source_directory(${SOURCE_ROOT_DIR}/network/socket SOURCES_NETWORK_SOCKETSVR)
 
 aux_source_directory(${SOURCE_ROOT_DIR}/proto SOURCES_PROTO)
 aux_source_directory(${SOURCE_ROOT_DIR}/proto/distcpp SOURCES_PROTO_DISTCPP)
@@ -49,7 +50,7 @@ aux_source_directory(${SOURCE_ROOT_DIR}/proto/distcpp SOURCES_PROTO_DISTCPP)
 # add the executable
 add_executable(${PROJECT_NAME}
     ${SOURCES} ${SOURCES_COMMON} ${SOURCES_COMMON_CONF} ${SOURCES_COMMON_UTILS}
-    ${SOURCES_NETWORK} ${SOURCES_NETWORK_LIBEVENT}
+    ${SOURCES_NETWORK} ${SOURCES_NETWORK_LIBEVENT} ${SOURCES_NETWORK_SOCKETSVR}
     ${SOURCES_PROTO} ${SOURCES_PROTO_DISTCPP})
 
 # ================================ link static libraries start ==========================================

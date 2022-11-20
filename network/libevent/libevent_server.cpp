@@ -90,9 +90,8 @@ bool LibeventServer::_InitEventBase(ServerContext& rstServerCtx, int32_t iRecvCt
         return false;
     }
 
-    m_stEventHandle.m_pstEventBase = pstEventBase;
-    m_stEventHandle.m_pstServerCtx = &rstServerCtx;
-    struct event* pstNtfEvt = event_new(pstEventBase, iRecvCtrlFd, EV_READ|EV_PERSIST, OnRecvNetCmdCtrl, &m_stEventHandle);
+    m_pstServerCtx = &rstServerCtx;
+    struct event* pstNtfEvt = event_new(pstEventBase, iRecvCtrlFd, EV_READ|EV_PERSIST, OnRecvNetCmdCtrl, this);
     if(NULL == pstNtfEvt)
     {
         LOGCRITICAL("create ntf event fail!");
@@ -133,9 +132,15 @@ bool LibeventServer::_InitListener(struct ST_ServerIPInfo& rstServerIPInfo, Serv
     return true;
 }
 
-void LibeventServer::Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx, int32_t iRecvCtrlFd)
+void LibeventServer::Init(struct ST_ServerIPInfo& rstServerIPInfo, ServerContext& rstServerCtx)
 {
-    if(false == _InitEventBase(rstServerCtx, iRecvCtrlFd))
+    if(false == CreatePipe(m_iRecvCtrlFd, m_iSendCtrlFd))
+    {
+        LOGCRITICAL("create pipe failed!.");
+        return;
+    }
+
+    if(false == _InitEventBase(rstServerCtx, m_iRecvCtrlFd))
     {
         LOGCRITICAL("InitEventBase failed!");
         return;
@@ -161,6 +166,63 @@ void LibeventServer::StartEventLoop()
     LOGINFO("finished eventLoop.");
 
     _ReleaseEventMgr();
+}
+
+void LibeventServer::SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
+{
+    for(;;)
+    {
+        const char* pchRequest = (const char*)&rstNetCmd;
+        ssize_t n = write(m_iSendCtrlFd, pchRequest, sizeof(rstNetCmd));
+        if(n<0) {
+            if (errno != EINTR) {
+                LOGERROR("send ctrl command {} error: {}", rstNetCmd.m_Header, strerror(errno));
+            }
+            continue;
+        }
+        if(n != sizeof(rstNetCmd))
+        {
+            LOGFATAL("SendNetworkCmd write cmd error, success write: %ld cmd size: %ld", n, sizeof(rstNetCmd));
+        }
+        return;
+    }
+}
+
+void LibeventServer::RecvNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
+{
+    assert(m_pstEventBase);
+    assert(m_pstServerCtx);
+
+	BYTE bchNetCmd = rstNetCmd.GetCmd();
+	switch(bchNetCmd)
+	{
+		case NETWORK_CMD_REQUEST_SEND_ALL_PACKET:
+            m_pstServerCtx->ExecuteCmdSendAllPacket(rstNetCmd);
+			break;
+		case NETWORK_CMD_REQUEST_CLOSE_SERVER:
+            LOGINFO("event loop quit by main thread signal");
+            event_base_loopbreak(m_pstEventBase);
+			break;
+		default:
+			LOGERROR("unknown net cmd: {}", (char)bchNetCmd);
+			break;
+	}
+}
+
+void OnRecvNetCmdCtrl(int32_t iRecvCtrlFd, short events, void* pstVoidServer)
+{
+	char buf[ST_NETWORK_CMD_REQUEST_MAX_SIZE] = {0};
+	int ret = read(iRecvCtrlFd, buf, sizeof(buf));
+	if(ret < 0){
+		LOGINFO("recv net cmd error: {}", ret);
+		return;
+	}
+
+	LibeventServer* pstServer = (LibeventServer*)pstVoidServer;
+	assert(pstServer);
+
+	struct ST_NETWORK_CMD_REQUEST* pstNetCmd = (struct ST_NETWORK_CMD_REQUEST*)buf;
+	pstServer->RecvNetworkCmd(*pstNetCmd);
 }
 
 } // namespace network
