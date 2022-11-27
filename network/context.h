@@ -9,6 +9,7 @@
 #include "common/logger.h"
 #include "common/noncopyable.h"
 #include "common/utils/spinlock.h"
+#include "common/signal.h"
 
 #include "defines.h"
 #include "packet.h"
@@ -18,6 +19,7 @@
 namespace network
 {
 
+// 结构体必须是POD类型
 typedef struct ST_ClientContextBuffer
 {
 public:
@@ -27,6 +29,11 @@ public:
 	int32_t  m_iBufferSize;
 	BYTE     m_chBuffer[NETWORK_PACKET_BUFFER_READ_SIZE * 10];
 
+	void construct()
+	{
+		memset(this, 0, sizeof(*this));
+	}
+
 	ST_ClientContextBuffer()
 	{
 		construct();
@@ -35,11 +42,6 @@ public:
 	~ST_ClientContextBuffer()
 	{
 		construct();
-	}
-
-	void construct()
-	{
-		memset(this, 0, sizeof(*this));
 	}
 
 	int32_t GetClientFd()
@@ -77,7 +79,6 @@ public:
 class ClientContext : public noncopyable
 {
 public:
-	ClientContext() = default;
 	virtual ~ClientContext() {};
 
 	virtual ST_ClientContextBuffer* GetContextBuffer() = 0;
@@ -129,15 +130,17 @@ public:
 	struct spinlock		m_stWriteLock;
 
     // 网络线程收包缓存
-	NetPacketQueue 				  m_stNetPacketRecvQueue;
+	NetPacketQueue 		m_stNetPacketRecvQueue;
     // 逻辑线程处理缓存
-	NetPacketQueue 				  m_stNetPacketLogicQueue;
+	NetPacketQueue 		m_stNetPacketLogicQueue;
 
     // 网路线程发包队列
-	NetPacketQueue				  m_stNetPacketWaitQueue;
-	NetPacketQueue				  m_stNetPacketSendQueue;
+	NetPacketQueue		m_stNetPacketWaitQueue;
+	NetPacketQueue		m_stNetPacketSendQueue;
 
-	ClientContextPool 			  m_stClientPool;
+	ClientContextPool 	m_stClientPool;
+
+	ST_GameSingnal      m_stSignalExec;
 
 	ServerContext()
 	{
@@ -168,7 +171,7 @@ public:
 	}
 
 	template<class T>
-    bool PacketSendProduceProtobufPacket(int32_t iSockFd, uint16_t wProtoNo, T& rstProto)
+    bool PacketProduceProtobufPacket(int32_t iSockFd, uint16_t wProtoNo, T& rstProto)
 	{
 		int32_t iBufferSize = (int32_t)rstProto.ByteSizeLong();
 		BYTE chRspBuffer[iBufferSize];
@@ -248,6 +251,11 @@ public:
 		{
 			LOGINFO("UnpackPacketFromRecvBuffer Finished: TotalPackets: {} Cost: {} ms", iTotalPackets, dwCostTime);
 		}
+		if(iTotalPackets > 0)
+		{
+			m_stSignalExec.Emit();
+		}
+
 		return 0;
 	}
 
@@ -279,6 +287,16 @@ public:
 		}
 		return iTotalPackets;
 	}
+
+};
+
+class NertworkServer
+{
+public:
+    virtual ~NertworkServer(){};
+
+    virtual void SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd) = 0;
+    virtual void RecvNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd) = 0;
 
 };
 

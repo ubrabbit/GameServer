@@ -2,6 +2,7 @@
 
 #include "common/logger.h"
 #include "common/singleton.h"
+#include "common/noncopyable.h"
 #include "common/conf/config.h"
 #include "common/utils/spinlock.h"
 #include "common/utils/posix.h"
@@ -32,7 +33,7 @@ public:
     }
 };
 
-class Server
+class Server : public noncopyable
 {
 public:
 
@@ -44,7 +45,10 @@ public:
     bool StartLibeventServer(struct ST_ServerIPInfo& rstServerIPInfo);
     bool StartSocketServer(struct ST_ServerIPInfo& rstServerIPInfo);
 
-    void SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd);
+    void SendNetworkPackets();
+
+    template<class T>
+    void StartEventLoop(T& rstServer);
 
 };
 

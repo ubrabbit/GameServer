@@ -20,21 +20,17 @@ public:
 	ST_ClientContextBuffer m_stContextBuffer;
 	struct socket_server*  m_pstSocketServer;
 
-	SocketClientCtx()
-	{
-		_construct();
-	}
 
-	SocketClientCtx(int32_t iClientFd, struct socket_server* pstServer)
+	SocketClientCtx(int32_t iClientFd, struct socket_server* pstServer):
+		m_pstSocketServer(pstServer)
 	{
-		_construct();
+		m_stContextBuffer.construct();
 		m_stContextBuffer.m_iClientFd = iClientFd;
-		m_pstSocketServer = pstServer;
 	}
 
 	~SocketClientCtx()
 	{
-		_construct();
+		m_pstSocketServer = NULL;
 	}
 
     void SetClientIP(char* pchIP, size_t dwSize)
@@ -87,14 +83,6 @@ public:
 	ST_ClientContextBuffer* GetContextBuffer()
 	{
 		return &m_stContextBuffer;
-	}
-
-private:
-
-	void _construct()
-	{
-		m_stContextBuffer.construct();
-		m_pstSocketServer = NULL;
 	}
 
 };

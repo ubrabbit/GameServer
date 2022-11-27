@@ -1,3 +1,28 @@
+/*
+The MIT License (MIT)
+
+Copyright (c) 2013 codingnow.com Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+https://github.com/cloudwu/skynet
+*/
+
 #ifndef poll_socket_epoll_h
 #define poll_socket_epoll_h
 
@@ -10,7 +35,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-static bool 
+static bool
 sp_invalid(int efd) {
 	return efd == -1;
 }
@@ -25,7 +50,7 @@ sp_release(int efd) {
 	close(efd);
 }
 
-static int 
+static int
 sp_add(int efd, int sock, void *ud) {
 	struct epoll_event ev;
 	ev.events = EPOLLIN;
@@ -36,12 +61,12 @@ sp_add(int efd, int sock, void *ud) {
 	return 0;
 }
 
-static void 
+static void
 sp_del(int efd, int sock) {
 	epoll_ctl(efd, EPOLL_CTL_DEL, sock , NULL);
 }
 
-static void 
+static void
 sp_write(int efd, int sock, void *ud, bool enable) {
 	struct epoll_event ev;
 	ev.events = EPOLLIN | (enable ? EPOLLOUT : 0);
@@ -49,7 +74,7 @@ sp_write(int efd, int sock, void *ud, bool enable) {
 	epoll_ctl(efd, EPOLL_CTL_MOD, sock, &ev);
 }
 
-static int 
+static int
 sp_wait(int efd, struct event *e, int max) {
 	struct epoll_event ev[max];
 	int n = epoll_wait(efd , ev, max, -1);

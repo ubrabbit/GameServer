@@ -49,6 +49,15 @@ static inline size_t GetMilliSecond()
 	return t;
 }
 
+static inline void SleepMicroSeconds(int32_t iMicroSeconds){
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec= iMicroSeconds;
+    int err;
+    do{
+       err = select(0, NULL, NULL, NULL, &tv);
+    }while(err<0 && errno==EINTR);
+}
 
 static inline void SleepMilliSeconds(int32_t iMillSeconds){
     struct timeval tv;

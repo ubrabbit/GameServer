@@ -12,6 +12,7 @@ public:
     int32_t  m_iSockFd;
     uint16_t m_wProtoNo;
     uint16_t m_wBufferSize;
+    size_t   m_dwCreateTime;
 
     NetPacketHeader()
     {
@@ -23,6 +24,7 @@ public:
         m_iSockFd = iSockFd;
         m_wBufferSize = wBufferSize;
         m_wProtoNo = wProtoNo;
+        m_dwCreateTime = GetMilliSecond();
     }
 };
 
@@ -32,7 +34,6 @@ public:
     NetPacketHeader m_stHeader;
     BYTE   m_achBytesArray[NETWORK_PACKET_BUFFER_DEFAULT_SIZE];
     BYTE*  m_pchBytesExtraSpace;
-    size_t m_dwCreateTime;
 
     void construct()
     {
@@ -70,7 +71,6 @@ public:
         construct();
         m_stHeader.Init(iSockFd, wProtoNo, wBufferSize);
 
-        m_dwCreateTime = GetMilliSecond();
 		if((size_t)wBufferSize > sizeof(m_achBytesArray))
 		{
 			m_pchBytesExtraSpace = new BYTE[wBufferSize];
@@ -99,12 +99,12 @@ public:
 
     int32_t GetPacketSize()
     {
-        return (int32_t)(m_stHeader.m_wBufferSize + sizeof(m_stHeader.m_wProtoNo) + sizeof(m_stHeader.m_wBufferSize));
+        return (int32_t)(m_stHeader.m_wBufferSize + NETWORK_PACKET_HEADER_SIZE);
     }
 
     size_t GetCreateTime()
     {
-        return (size_t)m_dwCreateTime;
+        return (size_t)m_stHeader.m_dwCreateTime;
     }
 
     BYTE* GetBuffer()

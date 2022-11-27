@@ -14,7 +14,7 @@ bool Server::StartLibeventServer(struct ST_ServerIPInfo& rstServerIPInfo)
     ServerMonitor::Instance().Inited();
 
     m_pstServer = pstLibEventServer;
-    m_pstServer->StartEventLoop();
+    StartEventLoop(*pstLibEventServer);
     return true;
 }
 
@@ -28,7 +28,7 @@ bool Server::StartSocketServer(struct ST_ServerIPInfo& rstServerIPInfo)
     ServerMonitor::Instance().Inited();
 
     m_pstServer = pstSocketServer;
-    m_pstServer->StartEventLoop();
+    StartEventLoop(*pstSocketServer);
     return true;
 }
 
@@ -49,10 +49,19 @@ bool Server::StartServer(struct ST_ServerIPInfo& rstServerIPInfo)
 }
 
 
-void Server::SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
+void Server::SendNetworkPackets()
 {
     assert(m_pstServer);
-    m_pstServer->SendNetworkCmd(rstNetCmd);
+
+    struct ST_NETWORK_CMD_REQUEST stNetCmd(NETWORK_CMD_REQUEST_SEND_ALL_PACKET);
+    m_pstServer->SendNetworkCmd(stNetCmd);
+}
+
+
+template<class T>
+void Server::StartEventLoop(T& rstServerHandle)
+{
+    rstServerHandle.StartEventLoop();
 }
 
 } // namespace network

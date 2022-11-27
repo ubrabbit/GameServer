@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "defines.h"
 #include "common/utils/posix.h"
+#include "common/logger.h"
 
 
 #pragma pack(1)
@@ -77,7 +78,13 @@ template<class T, typename P>
 int32_t PackProtobufStruct(int16_t wProto, T& rstProto, int32_t iBufferSize, P* buffer)
 {
     assert(buffer);
-    iBufferSize = iBufferSize >= sizeof(T) ? sizeof(T) : iBufferSize;
+
+    int32_t iProtoSize = (int32_t)rstProto.ByteSizeLong();
+    if(iBufferSize > iProtoSize)
+    {
+        LOGFATAL("proto<{}> truncate by buffer_size<{}> is bigger than sizeof<{}>!", wProto, iBufferSize, iProtoSize);
+        iBufferSize = iProtoSize;
+    }
     rstProto.SerializeToArray(buffer, iBufferSize);
     return (int32_t)(sizeof(int16_t) + iBufferSize);
 }

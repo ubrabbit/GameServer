@@ -25,9 +25,14 @@ public:
 	ST_ClientContextBuffer  m_stContextBuffer;
 	struct bufferevent*		m_pstBufferEvent;
 
-	LibeventClientCtx()
+	LibeventClientCtx(evutil_socket_t iClientFd, struct bufferevent* pstBufferEvent, struct sockaddr_in& rstClientAddr):
+		m_pstBufferEvent(pstBufferEvent)
 	{
-		_construct();
+		m_stContextBuffer.construct();
+		m_stContextBuffer.m_iClientFd = iClientFd;
+		memset(m_stContextBuffer.m_chClientIP, 0, sizeof(m_stContextBuffer.m_chClientIP));
+		snprintf(m_stContextBuffer.m_chClientIP, sizeof(m_stContextBuffer.m_chClientIP), "%s:%u",
+				inet_ntoa(rstClientAddr.sin_addr), ntohs(rstClientAddr.sin_port));
 	}
 
 	~LibeventClientCtx()
@@ -36,19 +41,7 @@ public:
 		{
 			bufferevent_free(m_pstBufferEvent);
 		}
-		_construct();
-	}
-
-    void SetClientIP(struct sockaddr_in& rstClientAddr)
-    {
-		memset(m_stContextBuffer.m_chClientIP, 0, sizeof(m_stContextBuffer.m_chClientIP));
-		snprintf(m_stContextBuffer.m_chClientIP, sizeof(m_stContextBuffer.m_chClientIP), "%s:%u", inet_ntoa(rstClientAddr.sin_addr), ntohs(rstClientAddr.sin_port));
-    }
-
-	void Init(evutil_socket_t iClientFd, struct bufferevent* pstBufferEvent)
-	{
-		m_stContextBuffer.m_iClientFd = iClientFd;
-		m_pstBufferEvent = pstBufferEvent;
+		m_pstBufferEvent = NULL;
 	}
 
 	int32_t GetClientFd()
@@ -94,14 +87,6 @@ public:
 	ST_ClientContextBuffer* GetContextBuffer()
 	{
 		return &m_stContextBuffer;
-	}
-
-private:
-
-	void _construct()
-	{
-		m_stContextBuffer.construct();
-		m_pstBufferEvent = NULL;
 	}
 
 };

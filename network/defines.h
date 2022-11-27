@@ -15,7 +15,7 @@ typedef unsigned char BYTE;
 #define NETWORK_SERVER_LISTEN_QUEUE_LEN    (512)       // accept queue最大长度
 
 #define NETWORK_PACKET_BUFFER_DEFAULT_SIZE (256)       // 单包默认长度
-#define NETWORK_PACKET_BUFFER_READ_SIZE    (10*1024)   // 单次收包最大长度10KB
+#define NETWORK_PACKET_BUFFER_READ_SIZE    (10*1024)   // 单次收包最大长度1KB
 
 // 网络收包缓冲区总大小
 // NETWORK_PACKET_BUFFER_DEFAULT_SIZE * 100 * 1000 == 25M
@@ -104,17 +104,6 @@ struct ST_NETWORK_CMD_REQUEST
     {
         return (BYTE)m_Header[0];
     }
-
-};
-
-class NertworkServer
-{
-public:
-    virtual ~NertworkServer(){};
-
-    virtual void StartEventLoop() = 0;
-    virtual void SendNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd) = 0;
-    virtual void RecvNetworkCmd(struct ST_NETWORK_CMD_REQUEST& rstNetCmd) = 0;
 
 };
 

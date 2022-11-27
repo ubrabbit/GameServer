@@ -58,9 +58,7 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
 	assert(pstServerCtx);
 
-	LibeventClientCtx* pstClientCtx = new LibeventClientCtx();
-	pstClientCtx->Init(iClientFd, pstEvtObj);
-	pstClientCtx->SetClientIP(stClientAddr);
+	LibeventClientCtx* pstClientCtx = new LibeventClientCtx(iClientFd, pstEvtObj, stClientAddr);
 	pstServerCtx->m_stClientPool.AddClient((int)iClientFd, pstClientCtx);
 
 	bufferevent_setcb(pstEvtObj, OnBufferEventRead, OnBufferEventWrite, OnBufferEventTrigger, pstServerCtx);
