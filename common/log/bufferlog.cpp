@@ -20,10 +20,10 @@ void BufferLogKFiFo::_DoLog(int32_t iLogType, const char* pchLogStr)
 
 int32_t BufferLogKFiFo::_DoKFiFoPushMsg(ST_BufferLogBlock& rstBufferLogBlock, char(&chBufferArray)[BUFFER_LOG_BLOCK_MAX_SIZE])
 {
-    if(false == IsInited())
+    if(false == m_bInited)
     {
         _DoLog(rstBufferLogBlock.m_iLogType, chBufferArray);
-        return strlen(chBufferArray);
+        return 0;
     }
 
     if (rstBufferLogBlock.m_iMsgLen > 0)
@@ -36,10 +36,10 @@ int32_t BufferLogKFiFo::_DoKFiFoPushMsg(ST_BufferLogBlock& rstBufferLogBlock, ch
         // 日志队列满，无法写日志
         else
         {
-            DO_LOGFATAL("kfifo buffer is full!");
+            SPD_LOGFATAL("kfifo buffer is full!");
         }
     }
-    return (rstBufferLogBlock.m_iMsgLen + sizeof(rstBufferLogBlock));
+    return 0;
 }
 
 int32_t BufferLogKFiFo::_DoKFiFoPopMsg(ST_BufferLogBlock& rstBufferLogBlock, char(&chTempRecvBuffer)[BUFFER_LOG_BLOCK_MAX_SIZE])
@@ -59,7 +59,7 @@ int32_t BufferLogKFiFo::_DoKFiFoPopMsg(ST_BufferLogBlock& rstBufferLogBlock, cha
         || rstBufferLogBlock.m_iMsgLen >= BUFFER_LOG_BLOCK_MAX_SIZE)
     {
         kfifo_reset_out(&g_stKFiFo);
-        DO_LOGFATAL("kfifo_out_peek token start or end or msg len invalid, token:({}/{})", rstBufferLogBlock.m_ullStartToken, rstBufferLogBlock.m_ullEndToken);
+        SPD_LOGFATAL("kfifo_out_peek token start or end or msg len invalid, token:({}/{})", rstBufferLogBlock.m_ullStartToken, rstBufferLogBlock.m_ullEndToken);
         return -1;
     }
 
@@ -96,7 +96,7 @@ void BufferLogKFiFo::DoDumpLogToDisk()
         iRet = _DoKFiFoPopMsg(stBufferLogBlock, chTempRecvBuffer);
         if(iRet < 0)
         {
-            DO_LOGFATAL("_DoKFiFoPopMsg error: {}", iRet);
+            SPD_LOGFATAL("_DoKFiFoPopMsg error: {}", iRet);
             continue;
         }
         if(0 == iRet)
@@ -120,26 +120,28 @@ void BufferLogKFiFo::DoDumpLogToDisk()
                         chTempRecvBuffer);
                 break;
             default:
-                DO_LOGFATAL("invalid log cmd: {}", stBufferLogBlock.m_iLogCmd);
+                SPD_LOGFATAL("invalid log cmd: {}", stBufferLogBlock.m_iLogCmd);
                 break;
         }
     }
     return;
 }
 
-void BufferLogKFiFo::InitSuccess()
+void BufferLogKFiFo::BindMainThread()
 {
+    m_stThreadID = std::this_thread::get_id();
     m_bInited = true;
+    SPD_LOGINFO("success bind log thread");
 }
 
-bool BufferLogKFiFo::IsInited()
+bool BufferLogKFiFo::IsMainThread()
 {
-    return m_bInited;
+    return m_stThreadID == std::this_thread::get_id();
 }
 
 void* ThreadDumpLogToDisk(void *pstArg)
 {
-    DO_LOGINFO("log thread begin running...");
+    SPD_LOGINFO("log thread begin running...");
     BufferLogKFiFo::Instance().DoDumpLogToDisk();
     return NULL;
 }
@@ -149,8 +151,7 @@ bool InitGameLogger(std::string sNamePrefix, std::string sLogLevel, bool bConsol
 {
     INIT_KFIFO(g_stKFiFo);
     int32_t iAvailableNum = kfifo_avail(&g_stKFiFo);
-    printf("init kfifo success, avail: %d\n", iAvailableNum);
-    BufferLogKFiFo::Instance().InitSuccess();
+    SPD_LOGINFO("init kfifo success, avail: {}", iAvailableNum);
 
 	bool bRet = GameLogger::Instance().InitLogger(sNamePrefix, sLogLevel, bConsole);
     if(false == bRet)
@@ -158,10 +159,9 @@ bool InitGameLogger(std::string sNamePrefix, std::string sLogLevel, bool bConsol
         return bRet;
     }
 
-    if(1 == BUFFER_LOG_USER_KFIFO)
-    {
+    #ifndef _GAMELOG_BUFFERLOG_DONOT_USE_KFIFO
         pthread_create(&g_iLogThreadID, NULL, ThreadDumpLogToDisk, NULL);
-    }
+    #endif
 
     return bRet;
 }

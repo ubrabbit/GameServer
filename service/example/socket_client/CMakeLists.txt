@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
 message("${CMAKE_CURRENT_SOURCE_DIR}")
-set(SOURCE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(SOURCE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../)
 set(THIRDLIB_ROOT_DIR ${SOURCE_ROOT_DIR}/dependency/thirdlib)
+message("THIRDLIB_ROOT_DIR: ${THIRDLIB_ROOT_DIR}")
 
 set(PROJECT_NAME socket_client)
 project(${PROJECT_NAME} LANGUAGES CXX)

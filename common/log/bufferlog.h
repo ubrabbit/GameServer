@@ -17,8 +17,6 @@ extern "C"
 namespace gamelog
 {
 
-#define BUFFER_LOG_USER_KFIFO (1)
-
 // 1KB
 #define BUFFER_LOG_BLOCK_MAX_SIZE (1024 * 1024)
 // 2的X次幂
@@ -30,7 +28,6 @@ namespace gamelog
 typedef enum
 {
 	E_BUFFER_LOG_CMD_NULL = 0,	    // 无效命令
-    E_BUFFER_LOG_CMD_FLUSH,         // flush
     E_BUFFER_LOG_CMD_LOG,           // 日志
 }E_BUFFER_LOG_CMD_TYPE;
 
@@ -135,8 +132,9 @@ public:
 	}
 
 	void DoDumpLogToDisk();
-	void InitSuccess();
-	bool IsInited();
+
+	void BindMainThread();
+	bool IsMainThread();
 
 private:
 
@@ -146,6 +144,7 @@ private:
 	void _DoLog(int32_t iLogType, int32_t iLine, const char* pchFileName, const char* pchFuncName, const char* pchLogStr);
 	void _DoLog(int32_t iLogType, const char* pchLogStr);
 
+	std::thread::id m_stThreadID{0};
 	bool m_bInited{false};
 
 };
@@ -155,16 +154,21 @@ bool InitGameLogger(std::string sNamePrefix, std::string sLogLevel, bool bConsol
 } //namespace
 
 #define BUFFERLOG_FUNCTION static_cast<const char *>(__FUNCTION__)
-#define BUFFERLOG_LOGGER_CALL(level, format, ...) {\
-	gamelog::BufferLogKFiFo::Instance().Log(gamelog::ST_SrcLocation{__FILE__, __LINE__, BUFFERLOG_FUNCTION}, level, format, ##__VA_ARGS__); \
-}
 #define BUFFERLOG_SPDLOG_CALL(logger, file, line, funcname, logtype, ...) (logger)->log(spdlog::source_loc{file, line, funcname}, static_cast<spdlog::level::level_enum>(logtype), ##__VA_ARGS__)
+#define BUFFERLOG_LOGGER_CALL(level, format, ...) {\
+	if(false == gamelog::BufferLogKFiFo::Instance().IsMainThread()){ \
+		BUFFERLOG_SPDLOG_CALL(gamelog::GameLogger::Instance().GetLogger().get(), __FILE__, __LINE__, BUFFERLOG_FUNCTION, level, format, ##__VA_ARGS__); \
+	} \
+	else{ \
+		gamelog::BufferLogKFiFo::Instance().Log(gamelog::ST_SrcLocation{__FILE__, __LINE__, BUFFERLOG_FUNCTION}, level, format, ##__VA_ARGS__); \
+	} \
+}
 
-#define LOGTRACE(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_TRACE, format, ##__VA_ARGS__)
-#define LOGDEBUG(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_DEBUG, format, ##__VA_ARGS__)
-#define LOGINFO(format, ...)  BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_INFO, format, ##__VA_ARGS__)
+#define BUFFER_LOGTRACE(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_TRACE, format, ##__VA_ARGS__)
+#define BUFFER_LOGDEBUG(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_DEBUG, format, ##__VA_ARGS__)
+#define BUFFER_LOGINFO(format, ...)  BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_INFO, format, ##__VA_ARGS__)
 
-#define LOGWARN(format, ...)  BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_WARN, format, ##__VA_ARGS__)
-#define LOGERROR(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_ERROR, format, ##__VA_ARGS__)
-#define LOGFATAL(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_FATAL, format, ##__VA_ARGS__)
-#define LOGCRITICAL(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_CRITICAL, format, ##__VA_ARGS__)
+#define BUFFER_LOGWARN(format, ...)  BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_WARN, format, ##__VA_ARGS__)
+#define BUFFER_LOGERROR(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_ERROR, format, ##__VA_ARGS__)
+#define BUFFER_LOGFATAL(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_FATAL, format, ##__VA_ARGS__)
+#define BUFFER_LOGCRITICAL(format, ...) BUFFERLOG_LOGGER_CALL(gamelog::E_BUFFER_LOG_TYPE_CRITICAL, format, ##__VA_ARGS__)

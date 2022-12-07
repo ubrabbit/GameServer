@@ -64,6 +64,7 @@ void GameLogic::_ProcessOneLoop(Gamesvr& rstGamesvr)
 
 void GameLogic::StartMainLoop(Gamesvr& rstGamesvr)
 {
+    gamelog::BufferLogKFiFo::Instance().BindMainThread();
     PythonBinding::Instance().InitPythonBinding();
 
     do{

@@ -107,14 +107,14 @@ private:
 
 } //namespace
 
-#define DO_LOGTRACE(...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::trace, __VA_ARGS__)
-#define DO_LOGDEBUG(...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::debug, __VA_ARGS__)
-#define DO_LOGINFO(...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::info, __VA_ARGS__)
-#define DO_LOGWARN(...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::warn, __VA_ARGS__)
-#define DO_LOGERROR(...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::err, __VA_ARGS__)
-#define DO_LOGFATAL(...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::critical, __VA_ARGS__)
-#define DO_LOGCRITICAL(...) \
+#define SPD_LOGTRACE(format, ...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::trace, format, ##__VA_ARGS__)
+#define SPD_LOGDEBUG(format, ...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::debug, format, ##__VA_ARGS__)
+#define SPD_LOGINFO(format, ...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::info, format, ##__VA_ARGS__)
+#define SPD_LOGWARN(format, ...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::warn, format, ##__VA_ARGS__)
+#define SPD_LOGERROR(format, ...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::err, format, ##__VA_ARGS__)
+#define SPD_LOGFATAL(format, ...) SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::critical, format, ##__VA_ARGS__)
+#define SPD_LOGCRITICAL(format, ...) \
 do { \
-	SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::critical, __VA_ARGS__); \
+	SPDLOG_LOGGER_CALL(gamelog::GameLogger::Instance().GetLogger().get(), spdlog::level::critical, format, ##__VA_ARGS__); \
 	exit(2);\
 } while(0)

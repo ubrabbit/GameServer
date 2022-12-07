@@ -47,7 +47,7 @@ size_t GetMilliSecond() {
 	return t;
 }
 
-#define MAX_TEST_PACKET_NUMBER (1 * 1000)
+#define MAX_TEST_PACKET_NUMBER (1 * 100)
 #define PROTO_HEADER_SIZE (sizeof(int16_t) * 2)
 #define PROTO_TAIL_SIZE (sizeof(size_t))
 

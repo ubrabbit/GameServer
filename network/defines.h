@@ -14,12 +14,11 @@ typedef unsigned char BYTE;
 #define NETWORK_SERVER_IP_ADDRESS_LEN      (64)        // IP地址最大长度
 #define NETWORK_SERVER_LISTEN_QUEUE_LEN    (512)       // accept queue最大长度
 
-#define NETWORK_PACKET_BUFFER_DEFAULT_SIZE (256)       // 单包默认长度
+#define NETWORK_PACKET_BUFFER_DEFAULT_SIZE (128)       // 单包默认长度
 #define NETWORK_PACKET_BUFFER_READ_SIZE    (10*1024)   // 单次收包最大长度1KB
 
 // 网络收包缓冲区总大小
-// NETWORK_PACKET_BUFFER_DEFAULT_SIZE * 100 * 1000 == 25M
-#define NETWORK_PACKET_BUFFER_POOL_SIZE (100 * 1000)
+#define NETWORK_PACKET_BUFFER_POOL_SIZE (1 * 512)
 
 #define NETWORK_PACKET_HEADER_SIZE         ((int32_t)sizeof(int16_t) * 2)         // 包头长度
 #define NETWORK_PACKET_TAIL_SIZE           ((int32_t)sizeof(size_t))              // 包尾长度
