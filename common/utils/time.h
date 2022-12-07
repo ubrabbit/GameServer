@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include <errno.h>
+
 static inline int NowDateToInt()
 {
 	time_t now;

@@ -4,6 +4,11 @@
 #include "common/singleton.h"
 #include "common/utils/time.h"
 #include "common/timer.h"
+
+#include "common/utils/backtrace.hpp"
+
+#include "binding/pybinding.h"
+
 #include "network/server.h"
 #include "network/packet.h"
 

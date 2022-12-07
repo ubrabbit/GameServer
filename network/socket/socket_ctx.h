@@ -45,7 +45,7 @@ public:
 		return m_stContextBuffer.m_iClientFd;
 	}
 
-	int32_t ReadToRecvBuffer(BYTE* pchBuffer, int32_t iBufferNeedRead)
+	int32_t PacketBufferRead(BYTE* pchBuffer, int32_t iBufferNeedRead)
 	{
 		int32_t iLeftSpace = (int32_t)sizeof(m_stContextBuffer.m_chBuffer) - (int32_t) m_stContextBuffer.m_iBufferSize;
         if(iLeftSpace < iBufferNeedRead)
@@ -59,7 +59,7 @@ public:
 		return iBufferNeedRead;
 	}
 
-	size_t ExecuteCmdSendOnePacket(NetPacketBuffer& rstPacket)
+	size_t PacketBufferSend(NetPacketBuffer& rstPacket)
 	{
 		int32_t iClientFd = rstPacket.m_stHeader.m_iSockFd;
 

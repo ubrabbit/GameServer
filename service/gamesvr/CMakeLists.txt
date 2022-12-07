@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 message("${CMAKE_CURRENT_SOURCE_DIR}")
 set(SOURCE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(THIRDLIB_ROOT_DIR ${SOURCE_ROOT_DIR}/dependency/thirdlib)
+set(THIRDSRC_ROOT_DIR ${SOURCE_ROOT_DIR}/dependency/thirdsrc)
 
 set(PROJECT_NAME gamesvr)
 project(${PROJECT_NAME} LANGUAGES CXX C)
@@ -12,12 +13,11 @@ if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 set(CMAKE_CXX_FLAGS "-Wall -fpic -pipe")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -rdynamic")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 include_directories(${SOURCE_ROOT_DIR})
 include_directories(${THIRDLIB_ROOT_DIR}/jemalloc/include/)
-include_directories(${THIRDLIB_ROOT_DIR}/python3/include/python3.11/)
 include_directories(${THIRDLIB_ROOT_DIR}/libevent/include/)
 include_directories(${THIRDLIB_ROOT_DIR}/spdlog/include/)
 
@@ -35,12 +35,20 @@ add_custom_target(COMPILE_PROTO ALL
 )
 # ================================ protobuf finished ========================================
 
+# ================================ python3 start ============================================
+include_directories(${THIRDLIB_ROOT_DIR}/python3/include/python3.11/)
+# ================================ python3 finished =========================================
+
 aux_source_directory(. SOURCES)
 aux_source_directory(./net SOURCES_NETHANDLE)
 
 aux_source_directory(${SOURCE_ROOT_DIR}/common SOURCES_COMMON)
 aux_source_directory(${SOURCE_ROOT_DIR}/common/conf SOURCES_COMMON_CONF)
 aux_source_directory(${SOURCE_ROOT_DIR}/common/utils SOURCES_COMMON_UTILS)
+aux_source_directory(${SOURCE_ROOT_DIR}/common/kfifo SOURCES_COMMON_KFIFO)
+aux_source_directory(${SOURCE_ROOT_DIR}/common/log SOURCES_COMMON_LOG)
+
+aux_source_directory(${SOURCE_ROOT_DIR}/binding SOURCES_BINDING)
 
 aux_source_directory(${SOURCE_ROOT_DIR}/network SOURCES_NETWORK)
 aux_source_directory(${SOURCE_ROOT_DIR}/network/libevent SOURCES_NETWORK_LIBEVENT)
@@ -52,6 +60,8 @@ aux_source_directory(${SOURCE_ROOT_DIR}/proto/distcpp SOURCES_PROTO_DISTCPP)
 # add the executable
 add_executable(${PROJECT_NAME}
     ${SOURCES} ${SOURCES_NETHANDLE} ${SOURCES_COMMON} ${SOURCES_COMMON_CONF} ${SOURCES_COMMON_UTILS}
+    ${SOURCES_COMMON_KFIFO} ${SOURCES_COMMON_LOG}
+    ${SOURCES_BINDING}
     ${SOURCES_NETWORK} ${SOURCES_NETWORK_LIBEVENT} ${SOURCES_NETWORK_SOCKETSVR}
     ${SOURCES_PROTO} ${SOURCES_PROTO_DISTCPP})
 
@@ -78,6 +88,9 @@ message("LIBEVENT_LIB_PTHREADS: ${LIBEVENT_LIB_PTHREADS}")
 find_library(PROTOBUF_LIB NAMES protobuf PATHS ${THIRDLIB_ROOT_DIR}/protobuf/lib NO_DEFAULT_PATH)
 message("PROTOBUF_LIB: ${PROTOBUF_LIB}")
 
+find_library(PYTHON_LIB NAMES python3.11 PATHS ${THIRDLIB_ROOT_DIR}/python3/lib NO_DEFAULT_PATH)
+message("PYTHON_LIB: ${PYTHON_LIB}")
+
 target_link_libraries(${PROJECT_NAME} -ldl -lutil -lm -pthread)
-target_link_libraries(${PROJECT_NAME} ${JEMALLOC_LIB} ${LIBEVENT_LIB} ${LIBEVENT_LIB_CORE} ${LIBEVENT_LIB_PTHREADS} ${PROTOBUF_LIB})
+target_link_libraries(${PROJECT_NAME} ${JEMALLOC_LIB} ${LIBEVENT_LIB} ${LIBEVENT_LIB_CORE} ${LIBEVENT_LIB_PTHREADS} ${PROTOBUF_LIB} ${PYTHON_LIB})
 # ================================ link static libraries end ===========================================

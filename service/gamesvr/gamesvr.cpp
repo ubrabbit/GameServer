@@ -23,12 +23,12 @@ Where possible, it exits cleanly in response to a SIGINT (ctrl-c).
 #include "common/logger.h"
 #include "common/conf/config.h"
 #include "common/signal.h"
+
 #include "gameconf.h"
 #include "common.h"
 #include "gamelogic.h"
 #include "gamenet.h"
 #include "gametimer.h"
-
 
 static pthread_t g_ThreadPool[3];
 

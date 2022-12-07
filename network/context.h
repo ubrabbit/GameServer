@@ -82,7 +82,7 @@ public:
 	virtual ~ClientContext() {};
 
 	virtual ST_ClientContextBuffer* GetContextBuffer() = 0;
-	virtual size_t ExecuteCmdSendOnePacket(NetPacketBuffer& rstPacket) = 0;
+	virtual size_t PacketBufferSend(NetPacketBuffer& rstPacket) = 0;
 
 };
 
@@ -276,7 +276,7 @@ public:
 			{
 				continue;
 			}
-			pstClientCtx->ExecuteCmdSendOnePacket(rstPacket);
+			pstClientCtx->PacketBufferSend(rstPacket);
 		}
 		vecNetPacketSendBuffer.clear();
 

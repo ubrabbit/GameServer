@@ -34,9 +34,6 @@ https://github.com/cloudwu/skynet
 namespace gametimer
 {
 
-#define TIMER_MALLOC malloc
-#define TIMER_FREE free
-
 #define TIME_NEAR_SHIFT 8
 #define TIME_NEAR (1 << TIME_NEAR_SHIFT)
 #define TIME_LEVEL_SHIFT 6
@@ -176,10 +173,10 @@ static inline void timer_shift(struct timer *T) {
 	}
 }
 
-static inline void dispatch_list(GameTimer& rstTimer, struct timer_node *current) {
+static inline void dispatch_list(GameTimer& rstGameTimer, struct timer_node *current) {
 	do {
 		struct timer_event * event = (struct timer_event *)(current+1);
-		rstTimer.TimerTimeout(event->handle, event->ctx);
+		rstGameTimer.TimerTimeout(event->handle, *event->ctx);
 
 		struct timer_node * temp = current;
 		current=current->next;
@@ -187,30 +184,33 @@ static inline void dispatch_list(GameTimer& rstTimer, struct timer_node *current
 	} while (current);
 }
 
-static inline void timer_execute(GameTimer& rstTimer) {
-	int idx = rstTimer.m_pstTimer->time & TIME_NEAR_MASK;
+static inline void timer_execute(GameTimer& rstGameTimer) {
+	struct timer* pstTimer = rstGameTimer.Timer();
 
-	while (rstTimer.m_pstTimer->near[idx].head.next) {
-		struct timer_node *current = link_clear(&rstTimer.m_pstTimer->near[idx]);
-		SPIN_UNLOCK(rstTimer.m_pstTimer);
+	int idx = pstTimer->time & TIME_NEAR_MASK;
+	while (pstTimer->near[idx].head.next) {
+		struct timer_node *current = link_clear(&pstTimer->near[idx]);
+		SPIN_UNLOCK(pstTimer);
 		// dispatch_list don't need lock T
-		dispatch_list(rstTimer, current);
-		SPIN_LOCK(rstTimer.m_pstTimer);
+		dispatch_list(rstGameTimer, current);
+		SPIN_LOCK(pstTimer);
 	}
 }
 
-void timer_update(GameTimer& rstTimer) {
-	SPIN_LOCK(rstTimer.m_pstTimer);
+void timer_update(GameTimer& rstGameTimer) {
+	struct timer* pstTimer = rstGameTimer.Timer();
+
+	SPIN_LOCK(pstTimer);
 
 	// try to dispatch timeout 0 (rare condition)
-	timer_execute(rstTimer);
+	timer_execute(rstGameTimer);
 
 	// shift time first, and then dispatch timer message
-	timer_shift(rstTimer.m_pstTimer);
+	timer_shift(pstTimer);
 
-	timer_execute(rstTimer);
+	timer_execute(rstGameTimer);
 
-	SPIN_UNLOCK(rstTimer.m_pstTimer);
+	SPIN_UNLOCK(pstTimer);
 }
 
 // centisecond: 1/100 second
@@ -232,16 +232,16 @@ gettime() {
 	return t;
 }
 
-void GameTimer::_AddTimerHandle(uint32_t handle, int time, ST_TimerContext* pstTimerCtx)
+void GameTimer::_AddTimerHandle(uint32_t handle, int time, ST_TimerContext& rstTimerCtx)
 {
 	if (time <= 0) {
-		TimerTimeout(handle, pstTimerCtx);
+		TimerTimeout(handle, rstTimerCtx);
 		return;
 	} else {
 		struct timer_event event;
 		event.handle = handle;
-		event.ctx = pstTimerCtx;
-		timer_add(m_pstTimer, &event, sizeof(event), time);
+		event.ctx = &rstTimerCtx;
+		timer_add(Timer(), &event, sizeof(event), time);
 	}
 	return;
 }
@@ -252,6 +252,15 @@ void GameTimer::_RemoveTimerHandle(uint32_t handle)
 	while(iter != m_mContextMap.end())
 	{
 		ST_TimerContext* pstTimerCtx = iter->second;
+
+		//删除timerkey:handle的映射
+		std::string sTimerkey(pstTimerCtx->m_achTimerKey);
+		auto iter_key = m_mTimerKeyMap.find(sTimerkey);
+		if(iter_key != m_mTimerKeyMap.end())
+		{
+			m_mTimerKeyMap.erase(iter_key);
+		}
+
 		if(NULL != pstTimerCtx)
 		{
 			delete pstTimerCtx;
@@ -261,15 +270,13 @@ void GameTimer::_RemoveTimerHandle(uint32_t handle)
 	}
 }
 
-void GameTimer::TimerTimeout(uint32_t handle, ST_TimerContext* pstTimerCtx)
+void GameTimer::TimerTimeout(uint32_t handle, ST_TimerContext& rstTimerCtx)
 {
-	assert(pstTimerCtx);
-
 	spinlock_lock(&m_stLock);
 	auto iter = m_mContextMap.find(handle);
 	if(iter != m_mContextMap.end())
 	{
-		pstTimerCtx->Timeout();
+		rstTimerCtx.Timeout();
 	}
 	else
 	{
@@ -315,10 +322,10 @@ int GameTimer::AddTimer(std::string& sTimerKey, int time, timer_execute_func fun
 
 	uint32_t dwHandleID = _GenerateHandleID();
 	LOGINFO("添加新定时器: {}", dwHandleID);
-	ST_TimerContext* pstTimerCtx = new ST_TimerContext(dwHandleID, stCallback, rstQueue);
+	ST_TimerContext* pstTimerCtx = new ST_TimerContext(sTimerKey.c_str(), dwHandleID, stCallback, rstQueue);
 	m_mContextMap.insert(std::pair<uint32_t, ST_TimerContext*>(dwHandleID, pstTimerCtx));
 	m_mTimerKeyMap.insert(std::pair<std::string, uint32_t>(sTimerKey, dwHandleID));
-	_AddTimerHandle(dwHandleID, time, pstTimerCtx);
+	_AddTimerHandle(dwHandleID, time, *pstTimerCtx);
 
 	spinlock_unlock(&m_stLock);
 	return 0;
@@ -395,6 +402,12 @@ void GameTimer::TimerInit(void)
 	systime(&m_pstTimer->starttime, &current);
 	m_pstTimer->current = current;
 	m_pstTimer->current_point = gettime();
+}
+
+struct timer* GameTimer::Timer()
+{
+	assert(m_pstTimer);
+	return m_pstTimer;
 }
 
 void ST_TimerContext::Timeout()

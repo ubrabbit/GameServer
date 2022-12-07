@@ -2,6 +2,8 @@
 
 using namespace network;
 using namespace gametimer;
+using namespace gamebinding;
+
 
 void GameLogic::_ProcessTimerCallback(Gamesvr& rstGamesvr)
 {
@@ -62,6 +64,8 @@ void GameLogic::_ProcessOneLoop(Gamesvr& rstGamesvr)
 
 void GameLogic::StartMainLoop(Gamesvr& rstGamesvr)
 {
+    PythonBinding::Instance().InitPythonBinding();
+
     do{
         LOGINFO("waiting network inited.");
         sleep(1);
@@ -75,4 +79,6 @@ void GameLogic::StartMainLoop(Gamesvr& rstGamesvr)
         SleepMicroSeconds(100);     // 100微秒 == 1/10 毫秒
     }
     LOGINFO("logic mainloop finished.");
+
+    PythonBinding::Instance().QuitPythonBinding();
 }

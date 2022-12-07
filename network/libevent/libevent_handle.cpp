@@ -109,7 +109,7 @@ void OnBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidServerCtx)
 
 	int32_t iReadLen = 0;
 	do{
-		iReadLen = pstClientCtx->ReadToRecvBuffer(pstEvtobj);
+		iReadLen = pstClientCtx->PacketBufferRead(pstEvtobj);
 		int32_t iRet = rstServerCtx.ExecuteCmdRecvAllPacket(pstClientCtx);
 		if(0 != iRet)
 		{
@@ -117,7 +117,7 @@ void OnBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidServerCtx)
 			return;
 		}
 		//第一次read缓冲区可能满了，正常情况下会解包空出空间，所以再收一次
-		iReadLen = pstClientCtx->ReadToRecvBuffer(pstEvtobj);
+		iReadLen = pstClientCtx->PacketBufferRead(pstEvtobj);
 	}while(iReadLen > 0);
 
 }

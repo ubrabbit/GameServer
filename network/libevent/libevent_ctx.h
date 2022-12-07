@@ -49,7 +49,7 @@ public:
 		return m_stContextBuffer.m_iClientFd;
 	}
 
-	int32_t ReadToRecvBuffer(struct bufferevent* pstEvtobj)
+	int32_t PacketBufferRead(struct bufferevent* pstEvtobj)
 	{
 		int32_t iReadLen = 0;
 
@@ -68,7 +68,7 @@ public:
 		return iReadLen;
 	}
 
-	size_t ExecuteCmdSendOnePacket(NetPacketBuffer& rstPacket)
+	size_t PacketBufferSend(NetPacketBuffer& rstPacket)
 	{
 		assert(m_pstBufferEvent);
 

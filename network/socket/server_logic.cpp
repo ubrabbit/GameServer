@@ -53,7 +53,7 @@ inline void _ProcessMessageData(struct socket_server* pstServer, ServerContext& 
 	BYTE* pchBufferPtr = (BYTE*)rstMessage.data;
 	int32_t iBufferNeedRead = (int32_t)rstMessage.ud;
 	do{
-		int32_t iReadLen = pstClientCtx->ReadToRecvBuffer(pchBufferPtr, iBufferNeedRead);
+		int32_t iReadLen = pstClientCtx->PacketBufferRead(pchBufferPtr, iBufferNeedRead);
 		if(iReadLen > 0)
 		{
 			pchBufferPtr += iReadLen;
