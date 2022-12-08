@@ -4,7 +4,7 @@ LDFLAGS = -pthread
 
 target = ./main
 
-build: main.o ../kfifo.o
+build: main.o ../../../common/kfifo/kfifo.o
 	${CC} -o ${target} ${LDFLAGS} $^
 
 run: build
@@ -14,7 +14,7 @@ clean:
 	# rm -rf *.o
 	find . -name "*.o" | xargs rm -f
 	rm -f ${target}
-	rm -f ../kfifo.o
+	rm -f ../../../common/kfifo/kfifo.o
 
 all: clean build
 

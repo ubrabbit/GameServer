@@ -69,8 +69,8 @@ int32_t BufferLogKFiFo::_DoKFiFoPopMsg(ST_BufferLogBlock& rstBufferLogBlock, cha
         return 0;
     }
 
-    char temp[sizeof(rstBufferLogBlock)] = {0};
-    kfifo_out(&g_stKFiFo, temp, sizeof(temp));
+    //跳过rstBufferLogBlock结构体，前面已经读出来了
+    kfifo_skip_n(&g_stKFiFo, sizeof(rstBufferLogBlock));
     switch (rstBufferLogBlock.m_iLogCmd)
     {
         case E_BUFFER_LOG_CMD_LOG:

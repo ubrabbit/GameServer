@@ -296,6 +296,19 @@ __kfifo_uint_must_check_helper( \
 })
 
 /**
+ * kfifo_skip - skip output data
+ * @fifo: address of the fifo to be used
+ * @n: number of bytes to skip
+ */
+#define	kfifo_skip_n(fifo, n) \
+(void)({ \
+	typeof((fifo) + 1) __tmp = (fifo); \
+	struct __kfifo *__kfifo = &__tmp->stkfifo; \
+	__kfifo->out += n; \
+})
+
+
+/**
  * kfifo_peek_len - gets the size of the next fifo record
  * @fifo: address of the fifo to be used
  *

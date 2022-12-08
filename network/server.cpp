@@ -35,17 +35,11 @@ bool Server::StartSocketServer(struct ST_ServerIPInfo& rstServerIPInfo)
 
 bool Server::StartServer(struct ST_ServerIPInfo& rstServerIPInfo)
 {
-    if(NETWORK_NET_MODE_SELECTED == E_NETWORK_NET_MODE_LIBEVENT)
-    {
-        return StartLibeventServer(rstServerIPInfo);
-    }
-    else if(NETWORK_NET_MODE_SELECTED == E_NETWORK_NET_MODE_SOCKET)
-    {
+    #ifdef _NETWORK_NET_MODE_SELECTED_SOCKET
         return StartSocketServer(rstServerIPInfo);
-    }
-
-    LOGCRITICAL("StartServer but net mode {} invalid!", NETWORK_NET_MODE_SELECTED);
-    return false;
+    #else
+        return StartLibeventServer(rstServerIPInfo);
+    #endif
 }
 
 

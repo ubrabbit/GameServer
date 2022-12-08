@@ -18,17 +18,10 @@ typedef unsigned char BYTE;
 #define NETWORK_PACKET_BUFFER_READ_SIZE    (10*1024)   // 单次收包最大长度1KB
 
 // 网络收包缓冲区总大小
-#define NETWORK_PACKET_BUFFER_POOL_SIZE (1 * 512)
+#define NETWORK_PACKET_BUFFER_POOL_SIZE (1024)
 
 #define NETWORK_PACKET_HEADER_SIZE         ((int32_t)sizeof(int16_t) * 2)         // 包头长度
 #define NETWORK_PACKET_TAIL_SIZE           ((int32_t)sizeof(size_t))              // 包尾长度
-
-enum E_NETWORK_NET_MODE_TYPE
-{
-    E_NETWORK_NET_MODE_LIBEVENT = 1,
-    E_NETWORK_NET_MODE_SOCKET   = 2,
-};
-#define NETWORK_NET_MODE_SELECTED (1)
 
 enum E_NETWORK_SERVER_IP_PORT_RANGE
 {
