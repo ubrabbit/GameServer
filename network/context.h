@@ -123,7 +123,7 @@ public:
 };
 
 
-class ServerContext : public noncopyable
+class NetworkContext : public noncopyable
 {
 public:
 	struct spinlock		m_stReadLock;
@@ -138,17 +138,15 @@ public:
 	NetPacketQueue		m_stNetPacketWaitQueue;
 	NetPacketQueue		m_stNetPacketSendQueue;
 
-	ClientContextPool 	m_stClientPool;
-
 	ST_GameSingnal      m_stSignalExec;
 
-	ServerContext()
+	NetworkContext()
 	{
 		spinlock_init(&m_stReadLock);
 		spinlock_init(&m_stWriteLock);
 	}
 
-	~ServerContext()
+	virtual ~NetworkContext()
 	{
 		spinlock_destroy(&m_stReadLock);
 		spinlock_destroy(&m_stWriteLock);
@@ -206,7 +204,7 @@ public:
 		return m_stNetPacketWaitQueue.Size() > 0;
 	}
 
-    int32_t ExecuteCmdRecvAllPacket(ClientContext* pstClientCtx)
+    int32_t UnpackPacketToRecvQueue(ClientContext* pstClientCtx)
 	{
 		assert(pstClientCtx);
 
@@ -233,7 +231,7 @@ public:
 			int16_t wBodySize = (int16_t)(iPacketSize - NETWORK_PACKET_HEADER_SIZE);
 			if(wBodySize <= 0)
 			{
-				LOGERROR("client<{}> recv packet error by body size {} not in valid range.", wBodySize);
+				LOGERROR("client<{}> recv packet error by body size {} not in valid range.", iClientFd, wBodySize);
 				return -2;
 			}
 
@@ -257,6 +255,21 @@ public:
 		}
 
 		return 0;
+	}
+
+	virtual int32_t ExecuteCmdRecvAllPacket(ClientContext* pstClientCtx) = 0;
+	virtual size_t ExecuteCmdSendAllPacket(struct ST_NETWORK_CMD_REQUEST& rstNetCmd) = 0;
+
+};
+
+class ServerContext : public NetworkContext
+{
+public:
+	ClientContextPool 	m_stClientPool;
+
+	int32_t ExecuteCmdRecvAllPacket(ClientContext* pstClientCtx)
+	{
+		return UnpackPacketToRecvQueue(pstClientCtx);
 	}
 
 	size_t ExecuteCmdSendAllPacket(struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
@@ -287,7 +300,56 @@ public:
 		}
 		return iTotalPackets;
 	}
+};
 
+class ConnectorContext : public NetworkContext
+{
+public:
+
+	ClientContext* m_pstClientCtx;
+
+	ConnectorContext(ClientContext* pstClientCtx):
+		m_pstClientCtx(pstClientCtx)
+	{
+	}
+
+	~ConnectorContext()
+	{
+		m_pstClientCtx = NULL;
+	}
+
+	int32_t ExecuteCmdRecvAllPacket(ClientContext* pstClientCtx)
+	{
+		return UnpackPacketToRecvQueue(pstClientCtx);
+	}
+
+	size_t ExecuteCmdSendAllPacket(struct ST_NETWORK_CMD_REQUEST& rstNetCmd)
+	{
+		size_t dwStartTime = GetMilliSecond();
+
+		std::vector<NetPacketBuffer> vecNetPacketSendBuffer;
+		CopyPacketsFromLogicToNet(vecNetPacketSendBuffer);
+
+		if (NULL == m_pstClientCtx)
+		{
+			return -1;
+		}
+
+		int32_t iTotalPackets = vecNetPacketSendBuffer.size();
+		for(auto it=vecNetPacketSendBuffer.begin(); it!=vecNetPacketSendBuffer.end(); it++)
+		{
+			NetPacketBuffer& rstPacket = *it;
+			m_pstClientCtx->PacketBufferSend(rstPacket);
+		}
+		vecNetPacketSendBuffer.clear();
+
+		size_t dwCostTime = GetMilliSecond() - dwStartTime;
+		if(iTotalPackets > 0 && dwCostTime > 10)
+		{
+			LOGINFO("ExecuteCmdSendAllPacket Finished: SendPackets: {} Cost: {} ms", iTotalPackets, dwCostTime);
+		}
+		return iTotalPackets;
+	}
 };
 
 class NertworkServer

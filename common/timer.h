@@ -70,6 +70,7 @@ public:
 	{
 		spinlock_init(&m_stLock);
 		m_vecQueue.reserve(GAMETIMER_TIMER_QUEUE_DEFAULT_SIZE);
+		m_vecQueue.shrink_to_fit();
 	}
 
 	~TimerQueue()

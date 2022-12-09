@@ -7,6 +7,7 @@ class Gamesvr
 {
 public:
     GameSvrConf     m_stGameSvrConf;
-    network::Server m_stMainServer;
 
+    network::Server m_stMainServer;
+    network::Server m_stProxyServer;
 };

@@ -58,6 +58,13 @@ struct ST_ServerIPInfo
         return true;
     }
 
+    std::string Repr()
+    {
+        char chBuffer[128] = {0};
+        sprintf(chBuffer, "ServerIP<%s:%d>", m_achServerIP, m_wServerPort);
+        return std::string(chBuffer);
+    }
+
 };
 
 enum E_NETWORK_CMD_REQUEST_LIST

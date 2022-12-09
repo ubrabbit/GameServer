@@ -20,7 +20,7 @@ namespace gamelog
 // 1KB
 #define BUFFER_LOG_BLOCK_MAX_SIZE (1024 * 1024)
 // 2的X次幂
-#define BUFFER_LOG_SPACE_SIZE (64 * 1024 * 1024)
+#define BUFFER_LOG_SPACE_SIZE (256 * 1024 * 1024)
 
 // 函数、文件长度
 #define BUFFER_LOG_FILE_FUNC_MAX_LENGTH (128)
@@ -154,7 +154,16 @@ bool InitGameLogger(std::string sNamePrefix, std::string sLogLevel, bool bConsol
 } //namespace
 
 #define BUFFERLOG_FUNCTION static_cast<const char *>(__FUNCTION__)
-#define BUFFERLOG_SPDLOG_CALL(logger, file, line, funcname, logtype, ...) (logger)->log(spdlog::source_loc{file, line, funcname}, static_cast<spdlog::level::level_enum>(logtype), ##__VA_ARGS__)
+#define BUFFERLOG_SPDLOG_CALL(logger, file, line, funcname, logtype, ...) { \
+	if(gamelog::E_BUFFER_LOG_TYPE_CRITICAL == logtype) { \
+		(logger)->log(spdlog::source_loc{file, line, funcname}, spdlog::level::critical, ##__VA_ARGS__); \
+		exit(2);\
+	} \
+	else { \
+		(logger)->log(spdlog::source_loc{file, line, funcname}, static_cast<spdlog::level::level_enum>(logtype), ##__VA_ARGS__); \
+	} \
+}
+
 #define BUFFERLOG_LOGGER_CALL(level, format, ...) {\
 	if(false == gamelog::BufferLogKFiFo::Instance().IsMainThread()){ \
 		BUFFERLOG_SPDLOG_CALL(gamelog::GameLogger::Instance().GetLogger().get(), __FILE__, __LINE__, BUFFERLOG_FUNCTION, level, format, ##__VA_ARGS__); \

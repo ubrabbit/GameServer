@@ -47,6 +47,7 @@ aux_source_directory(${SOURCE_ROOT_DIR}/common/conf SOURCES_COMMON_CONF)
 aux_source_directory(${SOURCE_ROOT_DIR}/common/utils SOURCES_COMMON_UTILS)
 aux_source_directory(${SOURCE_ROOT_DIR}/common/kfifo SOURCES_COMMON_KFIFO)
 aux_source_directory(${SOURCE_ROOT_DIR}/common/log SOURCES_COMMON_LOG)
+aux_source_directory(${SOURCE_ROOT_DIR}/common/event SOURCES_COMMON_EVENT)
 
 aux_source_directory(${SOURCE_ROOT_DIR}/binding SOURCES_BINDING)
 
@@ -60,7 +61,7 @@ aux_source_directory(${SOURCE_ROOT_DIR}/proto/distcpp SOURCES_PROTO_DISTCPP)
 # add the executable
 add_executable(${PROJECT_NAME}
     ${SOURCES} ${SOURCES_NETHANDLE} ${SOURCES_COMMON} ${SOURCES_COMMON_CONF} ${SOURCES_COMMON_UTILS}
-    ${SOURCES_COMMON_KFIFO} ${SOURCES_COMMON_LOG}
+    ${SOURCES_COMMON_KFIFO} ${SOURCES_COMMON_LOG} ${SOURCES_COMMON_EVENT}
     ${SOURCES_BINDING}
     ${SOURCES_NETWORK} ${SOURCES_NETWORK_LIBEVENT} ${SOURCES_NETWORK_SOCKETSVR}
     ${SOURCES_PROTO} ${SOURCES_PROTO_DISTCPP})

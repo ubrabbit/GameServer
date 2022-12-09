@@ -1,5 +1,7 @@
 #include "handle.h"
 
+using namespace network;
+
 namespace gamehandle
 {
 
@@ -17,6 +19,14 @@ void HandleCSProtoHello(Server& rstServer, NetPacketBuffer& rstPacket)
     stHelloRsp.set_unpack_timestamp(rstPacket.GetCreateTime());
     stHelloRsp.set_logic_timestamp(dwLogicTime);
     rstServer.m_stServerCtx.PacketProduceProtobufPacket(iSockFd, CS_PROTOCOL_MESSAGE_ID_HELLO, stHelloRsp);
+}
+
+void HandleSSProto(Server& rstServer, NetPacketBuffer& rstPacket)
+{
+}
+
+void HandleSSProto(Connector& rstConnector, NetPacketBuffer& rstPacket)
+{
 }
 
 void HandleCSProto(Server& rstServer, NetPacketBuffer& rstPacket)
