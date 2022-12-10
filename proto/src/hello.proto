@@ -14,3 +14,11 @@ message CSHelloRsp {
     uint64 unpack_timestamp = 3;
     uint64 logic_timestamp = 4;
 }
+
+message SSHello {
+    uint64 timestamp = 1;
+}
+
+message SSHelloRsp {
+    uint64 timestamp = 1;
+}

@@ -135,7 +135,6 @@ public:
 	NetPacketQueue 		m_stNetPacketLogicQueue;
 
     // 网路线程发包队列
-	NetPacketQueue		m_stNetPacketWaitQueue;
 	NetPacketQueue		m_stNetPacketSendQueue;
 
 	ST_GameSingnal      m_stSignalExec;
@@ -176,7 +175,9 @@ public:
 		memset(chRspBuffer, 0, sizeof(chRspBuffer));
 		PackProtobufStruct(wProtoNo, rstProto, iBufferSize, chRspBuffer);
 
-		m_stNetPacketWaitQueue.AddPacket(iSockFd, wProtoNo, iBufferSize, (BYTE*)chRspBuffer);
+		spinlock_lock(&m_stWriteLock);
+		m_stNetPacketSendQueue.AddPacket(iSockFd, wProtoNo, iBufferSize, (BYTE*)chRspBuffer);
+		spinlock_unlock(&m_stWriteLock);
 
 		return true;
 	}
@@ -184,7 +185,7 @@ public:
     int32_t PacketSendPrepare()
 	{
 		spinlock_lock(&m_stWriteLock);
-		int32_t iPacketRecvNum = m_stNetPacketSendQueue.CopyFrom(m_stNetPacketWaitQueue);
+		int32_t iPacketRecvNum = m_stNetPacketSendQueue.Size();
 		spinlock_unlock(&m_stWriteLock);
 		return iPacketRecvNum;
 	}
@@ -199,11 +200,6 @@ public:
 		return iPacketRecvNum;
 	}
 
-	bool HasPacketsWaiting()
-	{
-		return m_stNetPacketWaitQueue.Size() > 0;
-	}
-
     int32_t UnpackPacketToRecvQueue(ClientContext* pstClientCtx)
 	{
 		assert(pstClientCtx);
@@ -212,7 +208,11 @@ public:
 		int32_t iTotalPackets = 0;
 
 		ST_ClientContextBuffer* pstContextBuffer = pstClientCtx->GetContextBuffer();
-		assert(pstContextBuffer);
+		if(NULL == pstContextBuffer)
+		{
+			LOGFATAL("client unpack packet error by context buffer is NULL!");
+			return -1;
+		}
 		ST_ClientContextBuffer& rstContextBuffer = *pstContextBuffer;
 
 		int32_t iClientFd = rstContextBuffer.GetClientFd();
@@ -231,7 +231,7 @@ public:
 			int16_t wBodySize = (int16_t)(iPacketSize - NETWORK_PACKET_HEADER_SIZE);
 			if(wBodySize <= 0)
 			{
-				LOGERROR("client<{}> recv packet error by body size {} not in valid range.", iClientFd, wBodySize);
+				LOGERROR("client<{}> unpack packet error by body size {} not in valid range.", iClientFd, wBodySize);
 				return -2;
 			}
 
@@ -327,14 +327,14 @@ public:
 	{
 		size_t dwStartTime = GetMilliSecond();
 
-		std::vector<NetPacketBuffer> vecNetPacketSendBuffer;
-		CopyPacketsFromLogicToNet(vecNetPacketSendBuffer);
-
 		if (NULL == m_pstClientCtx)
 		{
+			LOGFATAL("ExecuteCmdSendAllPacket but client ctx is NUll!");
 			return -1;
 		}
 
+		std::vector<NetPacketBuffer> vecNetPacketSendBuffer;
+		CopyPacketsFromLogicToNet(vecNetPacketSendBuffer);
 		int32_t iTotalPackets = vecNetPacketSendBuffer.size();
 		for(auto it=vecNetPacketSendBuffer.begin(); it!=vecNetPacketSendBuffer.end(); it++)
 		{
@@ -344,7 +344,7 @@ public:
 		vecNetPacketSendBuffer.clear();
 
 		size_t dwCostTime = GetMilliSecond() - dwStartTime;
-		if(iTotalPackets > 0 && dwCostTime > 10)
+		if(iTotalPackets >= 0 && dwCostTime >= 0)
 		{
 			LOGINFO("ExecuteCmdSendAllPacket Finished: SendPackets: {} Cost: {} ms", iTotalPackets, dwCostTime);
 		}

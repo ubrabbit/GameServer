@@ -3,9 +3,15 @@
 
 namespace network {
 
-void _OnConnectorBufferEventWrite(struct bufferevent* pstEvtobj, void* pstVoidConnector)
+void _OnConnectorBufferEventWrite(int32_t iSockfd, short wEvent, void* pstVoidConnector)
 {
 	LOGINFO("_OnConnectorBufferEventWrites");
+
+	assert(pstVoidConnector);
+	Connector* pstConnector = (Connector*)pstVoidConnector;
+	Connector& rstConnector = *pstConnector;
+
+	rstConnector.ProcessSendNetworkPackets();
 }
 
 void _OnConnectorBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidConnector)
@@ -46,7 +52,7 @@ void _OnConnectorBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidCon
 
 void _OnConnectorBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pstVoidConnector)
 {
-	LOGINFO("_OnConnectorBufferEventTrigger");
+	LOGINFO("_OnConnectorBufferEventTrigger: {}", wEvent);
 
 	assert(pstVoidConnector);
 	Connector* pstConnector = (Connector*)pstVoidConnector;
@@ -109,10 +115,11 @@ bool Connector::Connect()
 
 	bufferevent_setcb(m_pstBufferEvt,
 					_OnConnectorBufferEventRead,
-					_OnConnectorBufferEventWrite,
+					NULL,
 					_OnConnectorBufferEventTrigger,
 					this);
 	bufferevent_enable(m_pstBufferEvt, EV_READ|EV_WRITE|EV_TIMEOUT|EV_PERSIST);
+	m_pstWriteEvent = event_new(m_pstEventBase, -1, EV_WRITE, _OnConnectorBufferEventWrite, this);
 
 	struct timeval tv = {60, 0};
 	bufferevent_set_timeouts(m_pstBufferEvt, NULL, &tv);
@@ -129,7 +136,8 @@ bool Connector::Connect()
 
 void Connector::Close()
 {
-	m_bIsAlive = false;
+	SetClosed();
+
 	if(NULL != m_pstBufferEvt)
 	{
 		bufferevent_free(m_pstBufferEvt);
@@ -139,6 +147,11 @@ void Connector::Close()
 	{
 		event_base_free(m_pstEventBase);
 		m_pstEventBase = NULL;
+	}
+	if(NULL != m_pstWriteEvent)
+	{
+		event_free(m_pstWriteEvent);
+		m_pstWriteEvent = NULL;
 	}
 	if(NULL != m_pstClientCtx)
 	{
@@ -154,17 +167,32 @@ void Connector::Close()
 
 void Connector::SetAlive()
 {
-	m_bIsAlive = true;
+	m_iStatus = NEWTOWK_CONNECTOR_STATUS_ALIVE;
 }
 
 void Connector::SetDead()
 {
-	m_bIsAlive = false;
+	m_iStatus = NEWTOWK_CONNECTOR_STATUS_DEAD;
+}
+
+void Connector::SetClosed()
+{
+	m_iStatus = NEWTOWK_CONNECTOR_STATUS_CLOSED;
 }
 
 bool Connector::IsAlive()
 {
-	return m_bIsAlive;
+	return m_iStatus == NEWTOWK_CONNECTOR_STATUS_ALIVE;
+}
+
+bool Connector::IsDead()
+{
+	return m_iStatus == NEWTOWK_CONNECTOR_STATUS_DEAD;
+}
+
+bool Connector::IsClosed()
+{
+	return m_iStatus == NEWTOWK_CONNECTOR_STATUS_CLOSED;
 }
 
 int32_t Connector::SocketFd()
@@ -208,22 +236,14 @@ void* ConnectorMainThread(void* conn)
 		LOGFATAL("{} connect success.", rstConnector.Repr());
 		rstConnector.SetAlive();
 	}
-
-	while(rstConnector.IsAlive())
-	{
-		rstConnector.ProcessSendNetworkPackets();
-		SleepMicroSeconds(10);
-	}
+	rstConnector.StartMainLoop();
 	LOGINFO("{} main thread finished.", rstConnector.Repr());
-
 	rstConnector.Close();
-	CloseConnector(rstConnector.SocketFd());
-
-	delete pstConnector;
+	rstConnector.SetClosed();
 	return NULL;
 }
 
-void Connector::StartMainLoop()
+void Connector::StartMainThread()
 {
     if(false == CreatePipe(m_iRecvCtrlFd, m_iSendCtrlFd))
     {
@@ -234,6 +254,17 @@ void Connector::StartMainLoop()
     pthread_create(&m_stMainThread, NULL, ConnectorMainThread, this);
 }
 
+void Connector::StartMainLoop()
+{
+	assert(m_pstEventBase);
+	while(IsAlive())
+	{
+		HeartBeat();
+		event_base_loop(m_pstEventBase, EVLOOP_NONBLOCK | EVLOOP_ONCE);
+		SleepMicroSeconds(100);
+	}
+}
+
 void Connector::SendNetworkPackets()
 {
 	if(false == IsAlive())
@@ -242,10 +273,16 @@ void Connector::SendNetworkPackets()
 	}
 
 	assert(m_pstConnectorCtx);
+	assert(m_pstBufferEvt);
 	// 发送命令给connector主线程，让connector主线程完成发送，避免不同线程对connector对象操作进行加锁。
 	struct ST_NETWORK_CMD_REQUEST stNetCmd(NETWORK_CMD_REQUEST_SEND_ALL_PACKET);
     for(;;)
     {
+		// 需要在循环开头再判断一次Alive
+		if(false == IsAlive())
+		{
+			break;
+		}
         const char* pchRequest = (const char*)&stNetCmd;
         ssize_t n = write(m_iSendCtrlFd, pchRequest, sizeof(stNetCmd));
         if(n<0) {
@@ -258,6 +295,7 @@ void Connector::SendNetworkPackets()
         {
             LOGFATAL("{} SendNetworkCmd write cmd error, success write: %ld cmd size: %ld", Repr(), n, sizeof(stNetCmd));
         }
+		event_active(m_pstWriteEvent, EV_WRITE, 0);
         return;
     }
 }
@@ -276,8 +314,8 @@ void Connector::ProcessSendNetworkPackets()
 	memset(chBuffer, 0, sizeof(chBuffer));
 
 	struct timeval timeout;
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 100 * 1000;
+	timeout.tv_sec = 1;
+	timeout.tv_usec = 0;
 
 	fd_set set;
 	FD_ZERO(&set);
@@ -285,8 +323,7 @@ void Connector::ProcessSendNetworkPackets()
 
 	for(;;)
 	{
-		int32_t n = 0;
-		int32_t ret = select(m_iRecvCtrlFd, &set, NULL, NULL, &timeout);
+		int32_t ret = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
 		if(ret == -1) // error
 		{
 			LOGFATAL("{} select fd<{}> error: {}", Repr(), m_iRecvCtrlFd, strerror(errno));
@@ -298,37 +335,56 @@ void Connector::ProcessSendNetworkPackets()
 			break;
 		}
 
-		n = read(m_iRecvCtrlFd, chBuffer, iCmdSize);
+		int32_t n = read(m_iRecvCtrlFd, chBuffer, iCmdSize);
 		if (n <= 0) {
 			if (errno == EINTR)
+			{
 				continue;;
+			}
 			LOGFATAL("{} read pipe error: {}.", Repr(), strerror(errno));
 			SetDead();
 			break;
 		}
+
 		if(false == IsAlive())
 		{
 			LOGINFO("{} skip send packets by not alived.", Repr());
 			break;
 		}
-
 		ST_NETWORK_CMD_REQUEST* pstNetCmd = (ST_NETWORK_CMD_REQUEST*)chBuffer;
 		ST_NETWORK_CMD_REQUEST& rstNetCmd = *pstNetCmd;
 		BYTE bchNetCmd = rstNetCmd.GetCmd();
 		switch(bchNetCmd)
 		{
 			case NETWORK_CMD_REQUEST_SEND_ALL_PACKET:
-				LOGINFO("{} sexecute cmd send all", Repr());
+				LOGINFO("{} execute cmd send all", Repr());
 				m_pstConnectorCtx->ExecuteCmdSendAllPacket(rstNetCmd);
 				break;
 			case NETWORK_CMD_REQUEST_CLOSE_SERVER:
-				LOGINFO("{} sexecute cmd close", Repr());
+				LOGINFO("{} execute cmd close", Repr());
 				SetDead();
 				break;
 			default:
-				LOGERROR("{} sunknown net cmd: {}", Repr(), (char)bchNetCmd);
+				LOGERROR("{} unknown net cmd: {}", Repr(), (char)bchNetCmd);
 				break;
 		}
+	}
+}
+
+void Connector::HeartBeat()
+{
+	m_iHeartBeatCnt++;
+	if(m_iHeartBeatCnt % 10000 == 0)
+	{
+		LOGINFO("{} heartbeat.", Repr());
+		m_iHeartBeatCnt = 0;
+
+		ConnectorContext& rstConnectorContext = *m_pstConnectorCtx;
+		ProtoHello::SSHello stHello;
+		stHello.set_timestamp(GetMilliSecond());
+		rstConnectorContext.PacketProduceProtobufPacket(SocketFd(), SS_PROTOCOL_MESSAGE_ID_HELLO, stHello);
+		rstConnectorContext.PacketSendPrepare();
+		SendNetworkPackets();
 	}
 }
 
@@ -351,14 +407,18 @@ bool ConnectorPool::CloseConnector(int32_t iSockFd)
 	if(it != m_stConnectorPool.end())
 	{
 		Connector* pstConnector = it->second;
-		pstConnector->SetDead();	// 不主动关闭，让connector的主线程结束后再关
+		if(pstConnector->IsAlive())
+		{
+			LOGFATAL("{} close but still alive!", pstConnector->Repr());
+		}
 		m_stConnectorPool.erase(it);
+		delete pstConnector;
 		return true;
 	}
 	return false;
 }
 
-void ConnectorPool::ProcessAllConnector(std::vector<Connector*>& rvecContexQueue)
+void ConnectorPool::ProcessAliveConnectors(std::vector<Connector*>& rvecContexQueue)
 {
     for(auto it=m_stConnectorPool.begin(); it!=m_stConnectorPool.end(); it++)
     {
@@ -371,13 +431,30 @@ void ConnectorPool::ProcessAllConnector(std::vector<Connector*>& rvecContexQueue
     }
 }
 
+void ConnectorPool::ProcessClosedConnectors()
+{
+	auto it=m_stConnectorPool.begin();
+	while(it != m_stConnectorPool.end())
+    {
+		Connector* pstConnector = it->second;
+		if(pstConnector->IsClosed())
+		{
+			m_stConnectorPool.erase(it);
+			delete pstConnector;
+		}
+		else
+		{
+			++it;
+		}
+    }
+}
+
 Connector* NewConnector(struct ST_ServerIPInfo& rstServerIPInfo)
 {
 	Connector* pstConnector = new Connector(rstServerIPInfo);
 	if(false == pstConnector->Create())
 	{
 		LOGFATAL("create connector failed");
-		pstConnector->Close();
 		delete pstConnector;
 		return NULL;
 	}
@@ -386,14 +463,14 @@ Connector* NewConnector(struct ST_ServerIPInfo& rstServerIPInfo)
 	return pstConnector;
 }
 
-bool CloseConnector(int32_t iSockFd)
+void ProcessAliveConnectors(std::vector<Connector*>& rvecContexQueue)
 {
-	return ConnectorPool::Instance().CloseConnector(iSockFd);
+	return ConnectorPool::Instance().ProcessAliveConnectors(rvecContexQueue);
 }
 
-void ProcessAllConnector(std::vector<Connector*>& rvecContexQueue)
+void ProcessClosedConnectors()
 {
-	return ConnectorPool::Instance().ProcessAllConnector(rvecContexQueue);
+	return ConnectorPool::Instance().ProcessClosedConnectors();
 }
 
 } // namespace network

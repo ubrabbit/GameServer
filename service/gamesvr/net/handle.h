@@ -14,12 +14,16 @@ using namespace network;
 namespace gamehandle
 {
 
-void HandleCSProtoHello(Server& rstServer, NetPacketBuffer& rstPacket);
+void HandleCSProtoHello(ServerContext& rstServerCtx, NetPacketBuffer& rstPacket);
 
-void HandleSSProto(Server& rstServer, NetPacketBuffer& rstPacket);
+template<typename Context>
+void HandleSSProtoHello(Context& ctx, NetPacketBuffer& rstPacket);
 
-void HandleSSProto(Connector& rstConnector, NetPacketBuffer& rstPacket);
+template<typename Context>
+void _HandleSSProtoExecute(Context& ctx, NetPacketBuffer& rstPacket);
+void HandleSSProto(ServerContext& rstServerCtxs, NetPacketBuffer& rstPacket);
+void HandleSSProto(ConnectorContext& rstConnectorCtx, NetPacketBuffer& rstPacket);
 
-void HandleCSProto(Server& rstServer, NetPacketBuffer& rstPacket);
+void HandleCSProto(ServerContext& rstServerCtx, NetPacketBuffer& rstPacket);
 
 } // namespace

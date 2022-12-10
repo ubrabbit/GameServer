@@ -16,11 +16,22 @@
 
 #include "libevent/libevent_ctx.h"
 
+#include "proto/proto.h"
+#include "proto/distcpp/hello.pb.h"
+
 #include "defines.h"
 #include "queue.h"
 #include "context.h"
 
 namespace network {
+
+typedef enum NEWTOWK_CONNECTOR_STATUS_TYPE
+{
+    NEWTOWK_CONNECTOR_STATUS_UNCONNECT  = 0,
+    NEWTOWK_CONNECTOR_STATUS_ALIVE      = 1,
+    NEWTOWK_CONNECTOR_STATUS_DEAD       = 2,
+    NEWTOWK_CONNECTOR_STATUS_CLOSED     = 3
+}NEWTOWK_CONNECTOR_STATUS_TYPE;
 
 class Connector
 {
@@ -30,10 +41,12 @@ public:
         m_stServerIPInfo(stServerIPInfo),
         m_pstEventBase(NULL),
         m_pstBufferEvt(NULL),
+        m_pstWriteEvent(NULL),
         m_pstClientCtx(NULL),
         m_pstConnectorCtx(NULL),
         m_iSockFd(0),
-        m_bIsAlive(false)
+        m_iStatus(NEWTOWK_CONNECTOR_STATUS_UNCONNECT),
+        m_iHeartBeatCnt(0)
     {}
 
     ~Connector()
@@ -49,20 +62,29 @@ public:
 
     void SetAlive();
     void SetDead();
+    void SetClosed();
     bool IsAlive();
+    bool IsDead();
+    bool IsClosed();
 
     int32_t SocketFd();
     LibeventClientCtx* ClientCtx();
     ConnectorContext*  ConnectorCtx();
 
+    void StartMainThread();
     void StartMainLoop();
+
     void SendNetworkPackets();
     void ProcessSendNetworkPackets();
+
+    void HeartBeat();
 
 private:
     struct ST_ServerIPInfo  m_stServerIPInfo;
     struct event_base*      m_pstEventBase;
     struct bufferevent*     m_pstBufferEvt;
+    struct event*           m_pstWriteEvent;
+
     LibeventClientCtx*      m_pstClientCtx;
     ConnectorContext*       m_pstConnectorCtx;
 
@@ -70,12 +92,14 @@ private:
 	struct spinlock		    m_stWriteLock;
     int32_t                 m_iSockFd;
 
-    bool                    m_bIsAlive;
+    int32_t                 m_iStatus;
 
     pthread_t               m_stMainThread;
 
     int32_t                 m_iRecvCtrlFd;
     int32_t                 m_iSendCtrlFd;
+
+    int32_t                 m_iHeartBeatCnt;
 
 };
 
@@ -85,7 +109,8 @@ public:
 
     bool AddConnector(Connector* pstConnector);
     bool CloseConnector(int32_t iSockFd);
-    void ProcessAllConnector(std::vector<Connector*>& rvecContexQueue);
+    void ProcessAliveConnectors(std::vector<Connector*>& rvecContexQueue);
+    void ProcessClosedConnectors();
 
 private:
     std::map<int32_t, Connector*>   m_stConnectorPool;
@@ -94,6 +119,7 @@ private:
 
 Connector* NewConnector(struct ST_ServerIPInfo& rstServerIPInfo);
 bool CloseConnector(int32_t iSockFd);
-void ProcessAllConnector(std::vector<Connector*>& rvecContexQueue);
+void ProcessAliveConnectors(std::vector<Connector*>& rvecContexQueue);
+void ProcessClosedConnectors();
 
 } // namespace network

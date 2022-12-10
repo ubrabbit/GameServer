@@ -27,16 +27,14 @@ void GameLogic::_ProcessSSNetworkPacketHandle(Owner& O, Context& Ctx, int32_t iP
 {
     assert(iPacketNum == rstPacketQueue.Size());
 
+    LOGINFO("_ProcessSSNetworkPacketHandle: {}", iPacketNum);
     // 用下标出错直接coredump，用迭代器可能会写出惊天奇BUG
     for(int32_t i=0; i<iPacketNum; i++)
     {
         NetPacketBuffer& rstPacket = rstPacketQueue.m_vecPacketPool[i];
-        gamehandle::HandleSSProto(O, rstPacket);
+        gamehandle::HandleSSProto(Ctx, rstPacket);
     }
-    if(Ctx.PacketSendPrepare() > 0)
-    {
-        O.SendNetworkPackets();
-    }
+    O.SendNetworkPackets();
 }
 
 void GameLogic::_ProcessSSNetworkPacket(Gamesvr& rstGamesvr)
@@ -56,7 +54,7 @@ void GameLogic::_ProcessSSNetworkPacket(Gamesvr& rstGamesvr)
 
     // connector 收到的回包
     std::vector<Connector*> vecConnectorQueue;
-    ProcessAllConnector(vecConnectorQueue);
+    ProcessAliveConnectors(vecConnectorQueue);
     for(auto it=vecConnectorQueue.begin(); it!=vecConnectorQueue.end(); it++)
     {
 		Connector* pstConnector = *it;
@@ -81,6 +79,7 @@ void GameLogic::_ProcessSSNetworkPacket(Gamesvr& rstGamesvr)
         _ProcessSSNetworkPacketHandle(rstConnector, rstConnectorCtx, iPacketNum, rstConnectorCtx.m_stNetPacketLogicQueue);
         iTotalNum += iPacketNum;
     }
+    ProcessClosedConnectors();
 
     size_t dwCostTime = GetMilliSecond() - dwStartTime;
     if(iTotalNum > 0)
@@ -97,20 +96,14 @@ void GameLogic::_ProcessCSNetworkPacketHandle(Server& rstServer, ServerContext& 
     for(int32_t i=0; i<iPacketNum; i++)
     {
         NetPacketBuffer& rstPacket = rstPacketQueue.m_vecPacketPool[i];
-        gamehandle::HandleCSProto(rstServer, rstPacket);
+        gamehandle::HandleCSProto(rstServerCtx, rstPacket);
 
         if(i > 0 && i % 1000 == 0)
         {
-            if(rstServerCtx.PacketSendPrepare() > 0)
-            {
-                rstServer.SendNetworkPackets();
-            }
+            rstServer.SendNetworkPackets();
         }
     }
-    if(rstServerCtx.PacketSendPrepare() > 0)
-    {
-        rstServer.SendNetworkPackets();
-    }
+    rstServer.SendNetworkPackets();
 }
 
 int32_t GameLogic::_ProcessCSNetworkPacket(Gamesvr& rstGamesvr)
@@ -154,7 +147,7 @@ void GameLogic::StartProxyConnector(Gamesvr& rstGamesvr)
         LOGCRITICAL("connect to <{}> failed!", rstGameSvrConf.m_stProxyServerIPInfo.Repr());
         return;
     }
-    pstConnector->StartMainLoop();
+    pstConnector->StartMainThread();
 }
 
 void GameLogic::StartMainLoop(Gamesvr& rstGamesvr)
