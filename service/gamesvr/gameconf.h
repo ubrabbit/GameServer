@@ -5,6 +5,7 @@
 #include "common/singleton.h"
 #include "common/logger.h"
 #include "common/conf/config.h"
+#include "common/utils/uuid.h"
 #include "network/defines.h"
 
 
@@ -15,6 +16,9 @@ public:
     struct network::ST_ServerIPInfo m_stProxyServerIPInfo;
     struct network::ST_ServerIPInfo m_stProxyConnectIPInfo;
 
+    uint32_t    m_dwHostID;
+    uint32_t    m_dwGameSvrID;
+
     void InitGameSvrConf()
     {
         std::string sConfFilepath("./conf/gamesvr.cfg");
@@ -23,6 +27,10 @@ public:
             LOGCRITICAL("GameConf init conf filepath failed!");
             return;
         }
+
+        m_dwHostID = getInteger("main", "host_id", 0);
+        m_dwGameSvrID = getInteger("main", "gamesvr_id", 0);
+        SnowFlakeUUID::Instance().Init(m_dwHostID, m_dwGameSvrID);
 
         short wPort = getInteger("main_server", "port", 0);
         std::string sServerIP = get("main_server", "host", "");
@@ -39,6 +47,7 @@ public:
         std::string sLoggerLevel = get("log", "level", "");
         bool bConsole = getBoolean("log", "console", false);
         gamelog::InitGameLogger("gamesvr", sLoggerLevel, bConsole);
+
     }
 };
 

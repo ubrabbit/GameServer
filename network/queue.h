@@ -62,15 +62,15 @@ public:
         return m_iPacketNum;
     }
 
-    int32_t AddPacket(int32_t iSockFd, int16_t wProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
+    int32_t AddPacket(uint64_t ulClientSeq, int32_t iSockFd, int16_t wProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
 	{
         if(m_iPacketNum >= (int32_t)m_vecPacketPool.size())
         {
-            m_vecPacketPool.emplace_back(iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
+            m_vecPacketPool.emplace_back(ulClientSeq, iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
         }
         else
         {
-            m_vecPacketPool[m_iPacketNum].Init(iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
+            m_vecPacketPool[m_iPacketNum].Init(ulClientSeq, iSockFd, wProtoNo, (int16_t)iBufferSize, pchBuffer);
         }
 		m_iPacketNum++;
 		return m_iPacketNum;

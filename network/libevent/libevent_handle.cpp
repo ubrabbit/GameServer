@@ -36,6 +36,17 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 	getpeername(iClientFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
 	LOGINFO("client<{}><{}:{}> accept connect.", iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
 
+	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
+	assert(pstServerCtx);
+
+	LibeventClientCtx* pstLastClientCtx = (LibeventClientCtx*)(pstServerCtx->m_stClientPool.GetClientByFd(iClientFd));
+	if(NULL != pstLastClientCtx)
+	{
+		LOGFATAL("client<{}><{}:{}> accept connect but sockfd already exists in pool!",
+				iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
+		CloseClient(*pstServerCtx, *pstLastClientCtx);
+	}
+
 	struct bufferevent *pstEvtObj = bufferevent_socket_new(pstEvtBase, iClientFd, BEV_OPT_CLOSE_ON_FREE);
 	if(NULL == pstEvtObj){
 		LOGFATAL("bufferevent_socket_new error!");
@@ -50,16 +61,13 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 		return;
 	}
 
-	LOGINFO("client<{}><{}:{}> accept connect success.", iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
 	// 设置单次读写包的大小
 	bufferevent_set_max_single_read(pstEvtObj, NETWORK_PACKET_BUFFER_READ_SIZE);
 	bufferevent_set_max_single_write(pstEvtObj, NETWORK_PACKET_BUFFER_READ_SIZE);
 
-	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
-	assert(pstServerCtx);
-
 	LibeventClientCtx* pstClientCtx = new LibeventClientCtx(iClientFd, pstEvtObj, stClientAddr);
-	pstServerCtx->m_stClientPool.AddClient((int)iClientFd, pstClientCtx);
+	pstServerCtx->m_stClientPool.AddClient(pstClientCtx->GetClientSeq(), pstClientCtx);
+	LOGINFO("{} accept connect success.", pstClientCtx->Repr());
 
 	bufferevent_setcb(pstEvtObj, OnBufferEventRead, OnBufferEventWrite, OnBufferEventTrigger, pstServerCtx);
 	//EV_PERSIST可以让注册的事件在执行完后不被删除,直到调用event_del()删除
@@ -94,7 +102,7 @@ void OnBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidServerCtx)
 	assert(pstServerCtx);
 	ServerContext& rstServerCtx = *pstServerCtx;
 
-	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)(rstServerCtx.m_stClientPool.GetClient(iClientFd));
+	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)(rstServerCtx.m_stClientPool.GetClientByFd(iClientFd));
 	if(NULL == pstClientCtx)
 	{
 		struct sockaddr_in stClientAddr;
@@ -133,7 +141,7 @@ void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pst
 	socklen_t dwAddrLen = sizeof(stClientAddr);
 	getpeername(iClientFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
 
-	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)rstServerCtx.m_stClientPool.GetClient(iClientFd);
+	LibeventClientCtx* pstClientCtx = (LibeventClientCtx*)rstServerCtx.m_stClientPool.GetClientByFd(iClientFd);
 	if(NULL == pstClientCtx)
 	{
 		int32_t iErrCode = evutil_socket_geterror(iClientFd);
@@ -174,8 +182,8 @@ void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pst
 
 void CloseClient(ServerContext& rstServerCtx, LibeventClientCtx& rstClientCtx)
 {
-	LOGINFO("client<{}> closed.", (int32_t)rstClientCtx.GetClientFd());
-	rstServerCtx.m_stClientPool.RemoveClient((int32_t)rstClientCtx.GetClientFd());
+	LOGINFO("client<{}><{}> closed.", rstClientCtx.GetClientFd(), rstClientCtx.GetClientSeq());
+	rstServerCtx.m_stClientPool.RemoveClient(rstClientCtx.GetClientSeq());
 
 	LibeventClientCtx* pstClientCtx = &rstClientCtx;
 	delete pstClientCtx;

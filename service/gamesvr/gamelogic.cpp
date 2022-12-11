@@ -27,7 +27,6 @@ void GameLogic::_ProcessSSNetworkPacketHandle(Owner& O, Context& Ctx, int32_t iP
 {
     assert(iPacketNum == rstPacketQueue.Size());
 
-    LOGINFO("_ProcessSSNetworkPacketHandle: {}", iPacketNum);
     // 用下标出错直接coredump，用迭代器可能会写出惊天奇BUG
     for(int32_t i=0; i<iPacketNum; i++)
     {

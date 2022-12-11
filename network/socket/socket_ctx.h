@@ -6,6 +6,7 @@
 #include "common/noncopyable.h"
 #include "common/logger.h"
 #include "common/utils/time.h"
+#include "common/utils/uuid.h"
 
 #include "network/defines.h"
 #include "network/packet.h"
@@ -16,14 +17,15 @@ namespace network {
 class SocketClientCtx : public ClientContext
 {
 public:
+	uint64_t 			   m_ulClientUniqSeq;
 
 	ST_ClientContextBuffer m_stContextBuffer;
 	struct socket_server*  m_pstSocketServer;
 
-
 	SocketClientCtx(int32_t iClientFd, struct socket_server* pstServer):
 		m_pstSocketServer(pstServer)
 	{
+		m_ulClientUniqSeq = SnowFlakeUUID::Instance().GenerateSeqID();
 		m_stContextBuffer.construct();
 		m_stContextBuffer.m_iClientFd = iClientFd;
 	}
@@ -40,9 +42,19 @@ public:
         memcpy(m_stContextBuffer.m_chClientIP, pchIP, dwSize);
     }
 
-	int32_t GetClientFd()
+	const int32_t GetClientFd()
 	{
 		return m_stContextBuffer.m_iClientFd;
+	}
+
+	const char* GetClientIP()
+	{
+		return m_stContextBuffer.m_chClientIP;
+	}
+
+	const uint64_t GetClientSeq()
+	{
+		return m_ulClientUniqSeq;
 	}
 
 	int32_t PacketBufferRead(BYTE* pchBuffer, int32_t iBufferNeedRead)

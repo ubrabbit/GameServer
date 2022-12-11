@@ -10,6 +10,7 @@
 #include "common/noncopyable.h"
 #include "common/logger.h"
 #include "common/utils/time.h"
+#include "common/utils/uuid.h"
 
 #include "network/defines.h"
 #include "network/packet.h"
@@ -29,6 +30,7 @@ public:
 		m_pstBufferEvent(pstBufferEvent)
 	{
 		m_stContextBuffer.construct();
+		m_stContextBuffer.m_ulClientSeq = SnowFlakeUUID::Instance().GenerateSeqID();
 		m_stContextBuffer.m_iClientFd = iClientFd;
 		memset(m_stContextBuffer.m_chClientIP, 0, sizeof(m_stContextBuffer.m_chClientIP));
 		snprintf(m_stContextBuffer.m_chClientIP, sizeof(m_stContextBuffer.m_chClientIP), "%s:%u",
@@ -44,9 +46,26 @@ public:
 		m_pstBufferEvent = NULL;
 	}
 
-	int32_t GetClientFd()
+	const char* GetClientIP()
+	{
+		return m_stContextBuffer.m_chClientIP;
+	}
+
+	const uint64_t GetClientSeq()
+	{
+		return m_stContextBuffer.m_ulClientSeq;
+	}
+
+	const int32_t GetClientFd()
 	{
 		return m_stContextBuffer.m_iClientFd;
+	}
+
+	std::string Repr()
+	{
+		char chBuffer[128] = {0};
+		sprintf(chBuffer, "Client<%ld><%d><%s>", m_stContextBuffer.m_ulClientSeq, m_stContextBuffer.m_iClientFd, m_stContextBuffer.m_chClientIP);
+		return std::string(chBuffer);
 	}
 
 	int32_t PacketBufferRead(struct bufferevent* pstEvtobj)

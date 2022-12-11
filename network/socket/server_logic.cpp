@@ -10,12 +10,12 @@ inline void _ProcessNewClient(struct socket_server* pstServer, ServerContext& rs
 {
 	LOGINFO("client<{}> connected.", iClientFd);
 	size_t dwSize = strlen(rstMessage.data);
-	SocketClientCtx* pstClient = (SocketClientCtx*)rstServerCtx.m_stClientPool.GetClient(iClientFd);
+	SocketClientCtx* pstClient = (SocketClientCtx*)rstServerCtx.m_stClientPool.GetClientByFd(iClientFd);
 	if(NULL == pstClient)
 	{
 		pstClient = new SocketClientCtx(iClientFd, pstServer);
 		pstClient->SetClientIP(rstMessage.data, dwSize);
-		rstServerCtx.m_stClientPool.AddClient(iClientFd, pstClient);
+		rstServerCtx.m_stClientPool.AddClient(pstClient->GetClientSeq(), pstClient);
 	}
 	pstClient->SetClientIP(rstMessage.data, dwSize);
 }
@@ -23,7 +23,7 @@ inline void _ProcessNewClient(struct socket_server* pstServer, ServerContext& rs
 inline bool _ProcessCloseClient(struct socket_server* pstServer, ServerContext& rstServerCtx, int32_t iClientFd)
 {
 	LOGINFO("client<{}> closed.", iClientFd);
-	SocketClientCtx* pstClient = (SocketClientCtx*)rstServerCtx.m_stClientPool.GetClient(iClientFd);
+	SocketClientCtx* pstClient = (SocketClientCtx*)rstServerCtx.m_stClientPool.GetClientByFd(iClientFd);
 	if(NULL == pstClient)
 	{
 		LOGINFO("client<{}> closed but not in client pool.", iClientFd);
@@ -31,7 +31,7 @@ inline bool _ProcessCloseClient(struct socket_server* pstServer, ServerContext& 
 	}
 
 	delete pstClient;
-	rstServerCtx.m_stClientPool.RemoveClient(iClientFd);
+	rstServerCtx.m_stClientPool.RemoveClient(pstClient->GetClientSeq());
 	return true;
 }
 
@@ -39,7 +39,7 @@ inline bool _ProcessCloseClient(struct socket_server* pstServer, ServerContext& 
 禁止在这个函数所处的线程调用任意的触发send_request的逻辑，这个线程只能转发数据到其他线程，通过mq!
 */
 inline void _ProcessMessageData(struct socket_server* pstServer, ServerContext& rstServerCtx, int32_t iClientFd, struct socket_message& rstMessage) {
-	SocketClientCtx* pstClientCtx = (SocketClientCtx*)rstServerCtx.m_stClientPool.GetClient(iClientFd);
+	SocketClientCtx* pstClientCtx = (SocketClientCtx*)rstServerCtx.m_stClientPool.GetClientByFd(iClientFd);
 	if(NULL == pstClientCtx)
 	{
 		LOGERROR("client<{}> recv data but not in client pool.", iClientFd);

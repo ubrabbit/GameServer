@@ -5,8 +5,6 @@ namespace network {
 
 void _OnConnectorBufferEventWrite(int32_t iSockfd, short wEvent, void* pstVoidConnector)
 {
-	LOGINFO("_OnConnectorBufferEventWrites");
-
 	assert(pstVoidConnector);
 	Connector* pstConnector = (Connector*)pstVoidConnector;
 	Connector& rstConnector = *pstConnector;
@@ -16,8 +14,6 @@ void _OnConnectorBufferEventWrite(int32_t iSockfd, short wEvent, void* pstVoidCo
 
 void _OnConnectorBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidConnector)
 {
-	LOGINFO("_OnConnectorBufferEventRead");
-
 	assert(pstVoidConnector);
 	Connector* pstConnector = (Connector*)pstVoidConnector;
 	Connector& rstConnector = *pstConnector;
@@ -52,8 +48,6 @@ void _OnConnectorBufferEventRead(struct bufferevent* pstEvtobj, void* pstVoidCon
 
 void _OnConnectorBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pstVoidConnector)
 {
-	LOGINFO("_OnConnectorBufferEventTrigger: {}", wEvent);
-
 	assert(pstVoidConnector);
 	Connector* pstConnector = (Connector*)pstVoidConnector;
 	Connector& rstConnector = *pstConnector;
@@ -88,6 +82,7 @@ bool Connector::Create()
 		LOGFATAL("can't create socket: {}", strerror(errno));
 		return false;
 	}
+	m_ulClientSeq = SnowFlakeUUID::Instance().GenerateSeqID();
 
 	struct bufferevent* pstBufferEvt = bufferevent_socket_new(
 										m_pstEventBase, m_iSockFd,
@@ -130,7 +125,7 @@ bool Connector::Connect()
 	}
 
 	m_pstClientCtx = new LibeventClientCtx(m_iSockFd, m_pstBufferEvt, fsin);
-	m_pstConnectorCtx = new ConnectorContext(m_pstClientCtx);
+	m_pstConnectorCtx = new ConnectorContext(m_ulClientSeq, m_pstClientCtx);
 	return true;
 }
 
@@ -200,6 +195,11 @@ int32_t Connector::SocketFd()
 	return m_iSockFd;
 }
 
+uint64_t Connector::ClientSeq()
+{
+	return m_ulClientSeq;
+}
+
 LibeventClientCtx* Connector::ClientCtx()
 {
 	assert(m_pstClientCtx);
@@ -215,7 +215,7 @@ ConnectorContext* Connector::ConnectorCtx()
 std::string Connector::Repr()
 {
 	char chBuffer[128] = {0};
-	sprintf(chBuffer, "Connector<%s:%d>", m_stServerIPInfo.m_achServerIP, m_stServerIPInfo.m_wServerPort);
+	sprintf(chBuffer, "Connector<%ld><%d><%s:%d>", m_ulClientSeq, m_iSockFd, m_stServerIPInfo.m_achServerIP, m_stServerIPInfo.m_wServerPort);
 	return std::string(chBuffer);
 }
 
@@ -226,16 +226,23 @@ void* ConnectorMainThread(void* conn)
 	Connector& rstConnector = *pstConnector;
 
 	LOGINFO("{} main thread start.", rstConnector.Repr());
-	if(false == rstConnector.Connect())
+	for(int32_t i=0; i<30; i++)
 	{
-		LOGFATAL("{} connect error: {}", rstConnector.Repr(), strerror(errno));
-		rstConnector.SetDead();
+		if(false == rstConnector.Connect())
+		{
+			LOGFATAL("{} connect error: {}", rstConnector.Repr(), strerror(errno));
+			rstConnector.SetDead();
+			SleepMilliSeconds(1000);
+			continue;
+		}
+		else
+		{
+			LOGFATAL("{} connect success.", rstConnector.Repr());
+			rstConnector.SetAlive();
+			break;
+		}
 	}
-	else
-	{
-		LOGFATAL("{} connect success.", rstConnector.Repr());
-		rstConnector.SetAlive();
-	}
+
 	rstConnector.StartMainLoop();
 	LOGINFO("{} main thread finished.", rstConnector.Repr());
 	rstConnector.Close();
@@ -357,7 +364,7 @@ void Connector::ProcessSendNetworkPackets()
 		switch(bchNetCmd)
 		{
 			case NETWORK_CMD_REQUEST_SEND_ALL_PACKET:
-				LOGINFO("{} execute cmd send all", Repr());
+				//LOGINFO("{} execute cmd send all", Repr());
 				m_pstConnectorCtx->ExecuteCmdSendAllPacket(rstNetCmd);
 				break;
 			case NETWORK_CMD_REQUEST_CLOSE_SERVER:
@@ -382,28 +389,27 @@ void Connector::HeartBeat()
 		ConnectorContext& rstConnectorContext = *m_pstConnectorCtx;
 		ProtoHello::SSHello stHello;
 		stHello.set_timestamp(GetMilliSecond());
-		rstConnectorContext.PacketProduceProtobufPacket(SocketFd(), SS_PROTOCOL_MESSAGE_ID_HELLO, stHello);
-		rstConnectorContext.PacketSendPrepare();
+		rstConnectorContext.PacketProduceProtobufPacket(ClientSeq(), SocketFd(), SS_PROTOCOL_MESSAGE_ID_HELLO, stHello);
 		SendNetworkPackets();
 	}
 }
 
 bool ConnectorPool::AddConnector(Connector* pstConnector)
 {
-	int32_t iSockFd = pstConnector->SocketFd();
-	auto it = m_stConnectorPool.find(iSockFd);
+	uint64_t iClientSeq = pstConnector->ClientSeq();
+	auto it = m_stConnectorPool.find(iClientSeq);
 	if(it != m_stConnectorPool.end())
 	{
-		LOGFATAL("AddConnector iSockFd<{}> fail by already exists in pool!", iSockFd);
+		LOGFATAL("AddConnector {} fail by already exists in pool!", pstConnector->Repr());
 		return false;
 	}
-	m_stConnectorPool.insert(std::pair<int32_t, Connector*>(iSockFd, pstConnector));
+	m_stConnectorPool.insert(std::pair<int32_t, Connector*>(iClientSeq, pstConnector));
 	return true;
 }
 
-bool ConnectorPool::CloseConnector(int32_t iSockFd)
+bool ConnectorPool::CloseConnector(uint64_t iClientSeq)
 {
-	auto it = m_stConnectorPool.find(iSockFd);
+	auto it = m_stConnectorPool.find(iClientSeq);
 	if(it != m_stConnectorPool.end())
 	{
 		Connector* pstConnector = it->second;

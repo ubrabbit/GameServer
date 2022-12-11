@@ -9,7 +9,9 @@ namespace network {
 class NetPacketHeader
 {
 public:
+    uint64_t m_ulClientSeq;
     int32_t  m_iSockFd;
+
     uint16_t m_wProtoNo;
     uint16_t m_wBufferSize;
     size_t   m_dwCreateTime;
@@ -19,8 +21,9 @@ public:
         memset(this, 0, sizeof(*this));
     }
 
-    void Init(int32_t iSockFd, uint16_t wProtoNo, uint16_t wBufferSize)
+    void Init(uint64_t ulClientSeq, int32_t iSockFd, uint16_t wProtoNo, uint16_t wBufferSize)
     {
+        m_ulClientSeq = ulClientSeq;
         m_iSockFd = iSockFd;
         m_wBufferSize = wBufferSize;
         m_wProtoNo = wProtoNo;
@@ -45,10 +48,10 @@ public:
         construct();
     }
 
-    NetPacketBuffer(int32_t iSockFd, int16_t wProtoNo, int16_t wBufferSize, BYTE* pchBuffer)
+    NetPacketBuffer(uint64_t ulClientSeq, int32_t iSockFd, int16_t wProtoNo, int16_t wBufferSize, BYTE* pchBuffer)
     {
         construct();
-        Init(iSockFd, wProtoNo, wBufferSize, pchBuffer);
+        Init(ulClientSeq, iSockFd, wProtoNo, wBufferSize, pchBuffer);
     }
 
     NetPacketBuffer(const NetPacketBuffer& rstPacketBuffer)
@@ -66,10 +69,10 @@ public:
         construct();
     }
 
-    void Init(int32_t iSockFd, int16_t wProtoNo, int16_t wBufferSize, BYTE* pchBuffer)
+    void Init(uint64_t ulClientSeq, int32_t iSockFd, int16_t wProtoNo, int16_t wBufferSize, BYTE* pchBuffer)
     {
         construct();
-        m_stHeader.Init(iSockFd, wProtoNo, wBufferSize);
+        m_stHeader.Init(ulClientSeq, iSockFd, wProtoNo, wBufferSize);
 
 		if((size_t)wBufferSize > sizeof(m_achBytesArray))
 		{
@@ -84,7 +87,12 @@ public:
 
     int32_t GetClientFd()
     {
-        return (int32_t)m_stHeader.m_iSockFd;
+        return m_stHeader.m_iSockFd;
+    }
+
+    uint64_t GetClientSeq()
+    {
+        return m_stHeader.m_ulClientSeq;
     }
 
     int32_t GetProtoNo()

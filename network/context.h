@@ -9,6 +9,7 @@
 #include "common/logger.h"
 #include "common/noncopyable.h"
 #include "common/utils/spinlock.h"
+#include "common/utils/uuid.h"
 #include "common/signal.h"
 
 #include "defines.h"
@@ -23,6 +24,7 @@ namespace network
 typedef struct ST_ClientContextBuffer
 {
 public:
+	uint64_t m_ulClientSeq;
 	int32_t  m_iClientFd;
 	char 	 m_chClientIP[NETWORK_SERVER_IP_ADDRESS_LEN];
 
@@ -47,6 +49,11 @@ public:
 	int32_t GetClientFd()
 	{
 		return m_iClientFd;
+	}
+
+	uint64_t GetClientSeq()
+	{
+		return m_ulClientSeq;
 	}
 
 	BYTE* GetBufferPtr()
@@ -84,37 +91,65 @@ public:
 	virtual ST_ClientContextBuffer* GetContextBuffer() = 0;
 	virtual size_t PacketBufferSend(NetPacketBuffer& rstPacket) = 0;
 
+	virtual const char* GetClientIP() = 0;
+	virtual const int32_t GetClientFd() = 0;
+	virtual const uint64_t GetClientSeq() = 0;
+
 };
 
 
 class ClientContextPool
 {
 public:
-	std::map<int32_t, ClientContext*> m_stPool;
+	std::map<uint64_t, ClientContext*> m_stClientSeqPool;
+	std::map<int32_t, ClientContext*>  m_stClientFdPool;
 
-	ClientContext* GetClient(int32_t iSockFd)
+	ClientContext* GetClient(uint64_t ulClientSeq)
 	{
-		auto it = m_stPool.find(iSockFd);
-		if(it != m_stPool.end())
+		auto it = m_stClientSeqPool.find(ulClientSeq);
+		if(it != m_stClientSeqPool.end())
 		{
 			return it->second;
 		}
 		return NULL;
 	}
 
-	void AddClient(int32_t iSockFd, ClientContext* pstClient)
+	ClientContext* GetClientByFd(int32_t iClientFd)
 	{
-		m_stPool.insert(std::pair<int, ClientContext*>(iSockFd, pstClient));
+		auto it = m_stClientFdPool.find(iClientFd);
+		if(it != m_stClientFdPool.end())
+		{
+			return it->second;
+		}
+		return NULL;
+	}
+
+	ClientContext* RemoveClientByFd(int32_t iClientFd)
+	{
+		auto it = m_stClientFdPool.find(iClientFd);
+		if(it != m_stClientFdPool.end())
+		{
+			m_stClientFdPool.erase(it);
+			return it->second;
+		}
+		return NULL;
+	}
+
+	void AddClient(uint64_t ulClientSeq, ClientContext* pstClient)
+	{
+		m_stClientSeqPool.insert(std::pair<uint64_t, ClientContext*>(ulClientSeq, pstClient));
+		m_stClientFdPool.insert(std::pair<int32_t, ClientContext*>(pstClient->GetClientFd(), pstClient));
 		return;
 	}
 
-	ClientContext* RemoveClient(int32_t iSockFd)
+	ClientContext* RemoveClient(uint64_t ulClientSeq)
 	{
-		auto it = m_stPool.find(iSockFd);
-		if(it != m_stPool.end())
+		auto it = m_stClientSeqPool.find(ulClientSeq);
+		if(it != m_stClientSeqPool.end())
 		{
 			ClientContext* pstClient = it->second;
-			m_stPool.erase(it);
+			RemoveClientByFd(pstClient->GetClientFd());
+			m_stClientSeqPool.erase(it);
 			return pstClient;
 		}
 		return NULL;
@@ -151,10 +186,10 @@ public:
 		spinlock_destroy(&m_stWriteLock);
 	}
 
-    void AddPacketToRecvQueue(int32_t iSockFd, int16_t wProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
+    void AddPacketToRecvQueue(uint64_t ulClientSeq, int32_t iClientFd, int16_t wProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
 	{
 		spinlock_lock(&m_stReadLock);
-		m_stNetPacketRecvQueue.AddPacket(iSockFd, wProtoNo, iBufferSize, (BYTE*)pchBuffer);
+		m_stNetPacketRecvQueue.AddPacket(ulClientSeq, iClientFd, wProtoNo, iBufferSize, (BYTE*)pchBuffer);
 		spinlock_unlock(&m_stReadLock);
 	}
 
@@ -168,7 +203,7 @@ public:
 	}
 
 	template<class T>
-    bool PacketProduceProtobufPacket(int32_t iSockFd, uint16_t wProtoNo, T& rstProto)
+    bool PacketProduceProtobufPacket(uint64_t ulClientSeq, int32_t iClientFd, uint16_t wProtoNo, T& rstProto)
 	{
 		int32_t iBufferSize = (int32_t)rstProto.ByteSizeLong();
 		BYTE chRspBuffer[iBufferSize];
@@ -176,7 +211,7 @@ public:
 		PackProtobufStruct(wProtoNo, rstProto, iBufferSize, chRspBuffer);
 
 		spinlock_lock(&m_stWriteLock);
-		m_stNetPacketSendQueue.AddPacket(iSockFd, wProtoNo, iBufferSize, (BYTE*)chRspBuffer);
+		m_stNetPacketSendQueue.AddPacket(ulClientSeq, iClientFd, wProtoNo, iBufferSize, (BYTE*)chRspBuffer);
 		spinlock_unlock(&m_stWriteLock);
 
 		return true;
@@ -216,6 +251,7 @@ public:
 		ST_ClientContextBuffer& rstContextBuffer = *pstContextBuffer;
 
 		int32_t iClientFd = rstContextBuffer.GetClientFd();
+		uint64_t ulClientSeq = rstContextBuffer.GetClientSeq();
 		int32_t iLeftSize = rstContextBuffer.GetBufferSize();
 		BYTE* pchBufferPtr = rstContextBuffer.GetBufferPtr();
 		while(iLeftSize >= NETWORK_PACKET_HEADER_SIZE)
@@ -231,12 +267,12 @@ public:
 			int16_t wBodySize = (int16_t)(iPacketSize - NETWORK_PACKET_HEADER_SIZE);
 			if(wBodySize <= 0)
 			{
-				LOGERROR("client<{}> unpack packet error by body size {} not in valid range.", iClientFd, wBodySize);
+				LOGERROR("client<{}><{}> unpack packet error by body size {} not in valid range.", ulClientSeq, iClientFd, wBodySize);
 				return -2;
 			}
 
 			BYTE* pstBufferData = pchBufferPtr + NETWORK_PACKET_HEADER_SIZE;
-			AddPacketToRecvQueue(iClientFd, (int16_t)iProtoNo, (int16_t)wBodySize, pstBufferData);
+			AddPacketToRecvQueue(ulClientSeq, iClientFd, (int16_t)iProtoNo, (int16_t)wBodySize, pstBufferData);
 
 			pchBufferPtr += iPacketSize;
 			iLeftSize -= iPacketSize;
@@ -283,8 +319,7 @@ public:
 		for(auto it=vecNetPacketSendBuffer.begin(); it!=vecNetPacketSendBuffer.end(); it++)
 		{
 			NetPacketBuffer& rstPacket = *it;
-			int32_t iClientFd = rstPacket.GetClientFd();
-			ClientContext* pstClientCtx = m_stClientPool.GetClient(iClientFd);
+			ClientContext* pstClientCtx = m_stClientPool.GetClient(rstPacket.GetClientSeq());
 			if(NULL == pstClientCtx)
 			{
 				continue;
@@ -300,18 +335,28 @@ public:
 		}
 		return iTotalPackets;
 	}
+
+	const std::string GetClientIP(uint64_t ulClientSeq)
+	{
+		ClientContext* pstClientCtx = m_stClientPool.GetClient(ulClientSeq);
+		if(NULL == pstClientCtx)
+		{
+			return std::string("Unknown");
+		}
+		return std::string(pstClientCtx->GetClientIP());
+	}
 };
 
 class ConnectorContext : public NetworkContext
 {
 public:
+	uint64_t 		m_ulClientSeq;
+	ClientContext*  m_pstClientCtx;
 
-	ClientContext* m_pstClientCtx;
-
-	ConnectorContext(ClientContext* pstClientCtx):
+	ConnectorContext(uint64_t ulClientSeq, ClientContext* pstClientCtx):
+		m_ulClientSeq(ulClientSeq),
 		m_pstClientCtx(pstClientCtx)
-	{
-	}
+	{}
 
 	~ConnectorContext()
 	{
@@ -344,12 +389,27 @@ public:
 		vecNetPacketSendBuffer.clear();
 
 		size_t dwCostTime = GetMilliSecond() - dwStartTime;
-		if(iTotalPackets >= 0 && dwCostTime >= 0)
+		if(iTotalPackets >= 0 && dwCostTime >= 10)
 		{
 			LOGINFO("ExecuteCmdSendAllPacket Finished: SendPackets: {} Cost: {} ms", iTotalPackets, dwCostTime);
 		}
 		return iTotalPackets;
 	}
+
+	const std::string GetClientIP(uint64_t ulClientSeq)
+	{
+		if(NULL == m_pstClientCtx)
+		{
+			return std::string("Unknown");
+		}
+		return std::string(m_pstClientCtx->GetClientIP());
+	}
+
+	const uint64_t GetClientSeq()
+	{
+		return m_ulClientSeq;
+	}
+
 };
 
 class NertworkServer

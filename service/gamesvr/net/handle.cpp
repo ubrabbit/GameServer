@@ -8,30 +8,32 @@ namespace gamehandle
 void HandleCSProtoHello(ServerContext& rstServerCtx, NetPacketBuffer& rstPacket)
 {
     size_t dwLogicTime = GetMilliSecond();
-    int32_t iSockFd = rstPacket.GetClientFd();
+    uint64_t ulClientSeq = rstPacket.GetClientSeq();
+    int32_t  iClientFd = rstPacket.GetClientFd();
     ProtoHello::CSHello stHello;
     UnpackProtobufStruct(stHello, rstPacket.GetBuffer(), rstPacket.GetBufferSize());
-    //LOGINFO("recv client<{}> packet, len<{}> proto<{}> content<'{}'>", iSockFd, rstPacket.GetPacketSize(), rstPacket.GetProtoNo(), stHello.content());
 
     ProtoHello::CSHelloRsp stHelloRsp;
     stHelloRsp.set_id(stHello.id());
     stHelloRsp.set_content(stHello.content());
     stHelloRsp.set_unpack_timestamp(rstPacket.GetCreateTime());
     stHelloRsp.set_logic_timestamp(dwLogicTime);
-    rstServerCtx.PacketProduceProtobufPacket(iSockFd, CS_PROTOCOL_MESSAGE_ID_HELLO, stHelloRsp);
+    rstServerCtx.PacketProduceProtobufPacket(ulClientSeq, iClientFd, CS_PROTOCOL_MESSAGE_ID_HELLO, stHelloRsp);
 }
 
 template<typename Context>
 void HandleSSProtoHello(Context& ctx, NetPacketBuffer& rstPacket)
 {
-    int32_t iSockFd = rstPacket.GetClientFd();
+    uint64_t ulClientSeq = rstPacket.GetClientSeq();
+    int32_t  iClientFd = rstPacket.GetClientFd();
+
     ProtoHello::SSHello stHello;
     UnpackProtobufStruct(stHello, rstPacket.GetBuffer(), rstPacket.GetBufferSize());
-    LOGINFO("recv pair<{}> hello", iSockFd);
+    LOGINFO("recv pair<{}><{}><{}> hello", ulClientSeq, iClientFd, ctx.GetClientIP(ulClientSeq));
 
     ProtoHello::SSHelloRsp stHelloRsp;
     stHelloRsp.set_timestamp(GetMilliSecond());
-    ctx.PacketProduceProtobufPacket(iSockFd, SS_PROTOCOL_MESSAGE_ID_HELLO_RSP, stHelloRsp);
+    ctx.PacketProduceProtobufPacket(ulClientSeq, iClientFd, SS_PROTOCOL_MESSAGE_ID_HELLO_RSP, stHelloRsp);
 }
 
 template<typename Context>
@@ -39,7 +41,8 @@ void HandleSSProtoHelloRsp(Context& ctx, NetPacketBuffer& rstPacket)
 {
     ProtoHello::SSHelloRsp stHelloRsp;
     UnpackProtobufStruct(stHelloRsp, rstPacket.GetBuffer(), rstPacket.GetBufferSize());
-    LOGINFO("recv pair<{}> hello rsp: {}, diff: {} ms", rstPacket.GetClientFd(), stHelloRsp.timestamp(), (GetMilliSecond()-stHelloRsp.timestamp()));
+    LOGINFO("recv pair<{}><{}><{}> hello rsp, diff: {} ms", rstPacket.GetClientSeq(), rstPacket.GetClientFd(),
+                        ctx.GetClientIP(rstPacket.GetClientSeq()), (GetMilliSecond()-stHelloRsp.timestamp()));
 }
 
 template<typename Context>
@@ -70,23 +73,14 @@ void HandleSSProto(ConnectorContext& rstConnectorCtx, NetPacketBuffer& rstPacket
 
 void HandleCSProto(ServerContext& rstServerCtx, NetPacketBuffer& rstPacket)
 {
-    bool bReturnNoNext = true;
-
     switch(rstPacket.GetProtoNo())
     {
         case CS_PROTOCOL_MESSAGE_ID_HELLO:
             HandleCSProtoHello(rstServerCtx, rstPacket);
             break;
         default:
-            bReturnNoNext = false;
             break;
     }
-
-    //todo: script interface
-    if(false == bReturnNoNext)
-    {
-    }
-    return;
 }
 
 } // namespace

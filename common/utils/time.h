@@ -52,6 +52,13 @@ static inline size_t GetMilliSecond()
 	return t;
 }
 
+static inline size_t GetMicroSecond()
+{
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    return tv.tv_sec*(uint64_t)1000000 + tv.tv_usec;
+}
+
 static inline void SleepMicroSeconds(int32_t iMicroSeconds){
     struct timeval tv;
     tv.tv_sec = 0;
