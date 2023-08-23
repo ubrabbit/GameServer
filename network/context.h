@@ -186,10 +186,10 @@ public:
 		spinlock_destroy(&m_stWriteLock);
 	}
 
-    void AddPacketToRecvQueue(uint64_t ulClientSeq, int32_t iClientFd, int16_t wProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
+    void AddPacketToRecvQueue(uint64_t ulClientSeq, int32_t iClientFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
 	{
 		spinlock_lock(&m_stReadLock);
-		m_stNetPacketRecvQueue.AddPacket(ulClientSeq, iClientFd, wProtoNo, iBufferSize, (BYTE*)pchBuffer);
+		m_stNetPacketRecvQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBufferSize, (BYTE*)pchBuffer);
 		spinlock_unlock(&m_stReadLock);
 	}
 
@@ -203,15 +203,15 @@ public:
 	}
 
 	template<class T>
-    bool PacketProduceProtobufPacket(uint64_t ulClientSeq, int32_t iClientFd, uint16_t wProtoNo, T& rstProto)
+    bool PacketProduceProtobufPacket(uint64_t ulClientSeq, int32_t iClientFd, int32_t iProtoNo, T& rstProto)
 	{
 		int32_t iBufferSize = (int32_t)rstProto.ByteSizeLong();
 		BYTE chRspBuffer[iBufferSize];
 		memset(chRspBuffer, 0, sizeof(chRspBuffer));
-		PackProtobufStruct(wProtoNo, rstProto, iBufferSize, chRspBuffer);
+		PackProtobufStruct(iProtoNo, rstProto, iBufferSize, chRspBuffer);
 
 		spinlock_lock(&m_stWriteLock);
-		m_stNetPacketSendQueue.AddPacket(ulClientSeq, iClientFd, wProtoNo, iBufferSize, (BYTE*)chRspBuffer);
+		m_stNetPacketSendQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBufferSize, (BYTE*)chRspBuffer);
 		spinlock_unlock(&m_stWriteLock);
 
 		return true;
@@ -256,23 +256,22 @@ public:
 		BYTE* pchBufferPtr = rstContextBuffer.GetBufferPtr();
 		while(iLeftSize >= NETWORK_PACKET_HEADER_SIZE)
 		{
-			int32_t iPacketSize = (int32_t)UnpackInt(pchBufferPtr, (int16_t)sizeof(int16_t));
+			BYTE* ptr = pchBufferPtr;
+			int32_t iPacketSize = (int32_t)UnpackInt(ptr, (int16_t)sizeof(int16_t));
 			// 还没收到足够长度的包
 			if(iLeftSize < iPacketSize || iPacketSize < NETWORK_PACKET_HEADER_SIZE)
 			{
 				break;
 			}
 
-			int32_t iProtoNo = (int32_t)UnpackInt(pchBufferPtr + sizeof(int16_t), (int16_t)sizeof(int16_t));
-			int16_t wBodySize = (int16_t)(iPacketSize - NETWORK_PACKET_HEADER_SIZE);
-			if(wBodySize <= 0)
+			int32_t iProtoNo = (int32_t)UnpackInt(ptr, (int16_t)sizeof(int16_t));
+			int32_t iBodySize = iPacketSize - NETWORK_PACKET_HEADER_SIZE;
+			if(iBodySize <= 0)
 			{
-				LOGERROR("client<{}><{}> unpack packet error by body size {} not in valid range.", ulClientSeq, iClientFd, wBodySize);
+				LOGERROR("client<{}><{}> unpack packet error by body size {} not in valid range.", ulClientSeq, iClientFd, iBodySize);
 				return -2;
 			}
-
-			BYTE* pstBufferData = pchBufferPtr + NETWORK_PACKET_HEADER_SIZE;
-			AddPacketToRecvQueue(ulClientSeq, iClientFd, (int16_t)iProtoNo, (int16_t)wBodySize, pstBufferData);
+			AddPacketToRecvQueue(ulClientSeq, iClientFd, iProtoNo, iBodySize, ptr);
 
 			pchBufferPtr += iPacketSize;
 			iLeftSize -= iPacketSize;

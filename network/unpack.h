@@ -14,13 +14,14 @@
 namespace network {
 
 template<typename P, typename T>
-T UnpackInt(P* buffer, T size)
+T UnpackInt(P* &buffer, T size)
 {
 	assert(buffer);
 
 	T bytes= (T)0;
     size = (size > sizeof(T)) ? sizeof(T) : size;
     memcpy(&bytes, buffer, size);
+    buffer += size;
 
 	switch(size)
     {
@@ -37,7 +38,7 @@ T UnpackInt(P* buffer, T size)
 }
 
 template<typename P, typename T>
-T PackInt(P* buffer, T value)
+T PackInt(P* &buffer, T value)
 {
     assert(buffer);
 
@@ -46,20 +47,19 @@ T PackInt(P* buffer, T value)
     {
     case 8:
         value = htobe64((uint64_t)value);
-        memcpy(buffer, &value, iSize);
         break;
     case 4:
         value = htonl(value);
-        memcpy(buffer, &value, iSize);
         break;
     case 2:
         value = htons(value);
-        memcpy(buffer, &value, iSize);
         break;
     default:
-        memcpy(buffer, &value, iSize);
         break;
 	}
+
+    memcpy(buffer, &value, iSize);
+    buffer += iSize;
 	return (T)iSize;
 }
 
