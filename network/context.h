@@ -208,7 +208,7 @@ public:
 		int32_t iBufferSize = (int32_t)rstProto.ByteSizeLong();
 		BYTE chRspBuffer[iBufferSize];
 		memset(chRspBuffer, 0, sizeof(chRspBuffer));
-		PackProtobufStruct(iProtoNo, rstProto, iBufferSize, chRspBuffer);
+		PackProtobufStruct(iProtoNo, rstProto, iBufferSize, iBufferSize, chRspBuffer);
 
 		spinlock_lock(&m_stWriteLock);
 		m_stNetPacketSendQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBufferSize, (BYTE*)chRspBuffer);

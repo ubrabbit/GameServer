@@ -50,7 +50,6 @@ public:
 
     NetPacketBuffer(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
     {
-        construct();
         Init(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pchBuffer);
     }
 

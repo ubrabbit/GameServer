@@ -75,11 +75,10 @@ int32_t PackStruct(int16_t wProto, T& rst, P* buffer)
 }
 
 template<class T, typename P>
-int32_t PackProtobufStruct(int16_t wProto, T& rstProto, int32_t iBufferSize, P* buffer)
+int32_t PackProtobufStruct(int16_t wProto, T& rstProto, int32_t iBufferSize, int32_t iProtoSize, P* buffer)
 {
     assert(buffer);
 
-    int32_t iProtoSize = (int32_t)rstProto.ByteSizeLong();
     if(iBufferSize > iProtoSize)
     {
         LOGFATAL("proto<{}> truncate by buffer_size<{}> is bigger than sizeof<{}>!", wProto, iBufferSize, iProtoSize);

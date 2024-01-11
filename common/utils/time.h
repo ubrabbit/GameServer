@@ -41,7 +41,7 @@ static inline size_t GetMilliSecond()
 #if !defined(__APPLE__) || defined(AVAILABLE_MAC_OS_X_VERSION_10_12_AND_LATER)
 	struct timespec ti;
 	clock_gettime(CLOCK_MONOTONIC, &ti);
-	t = (size_t)ti.tv_sec * 1000;
+	t = (size_t)ti.tv_sec * (size_t)1000;
 	t += ti.tv_nsec / 1000000;
 #else
 	struct timeval tv;
@@ -54,9 +54,18 @@ static inline size_t GetMilliSecond()
 
 static inline size_t GetMicroSecond()
 {
+	size_t t;
+#if !defined(__APPLE__) || defined(AVAILABLE_MAC_OS_X_VERSION_10_12_AND_LATER)
+	struct timespec ti;
+	clock_gettime(CLOCK_MONOTONIC, &ti);
+	t = (size_t)ti.tv_sec * (size_t)1000000;
+	t += ti.tv_nsec / 1000;
+#else
     struct timeval tv;
     gettimeofday(&tv,NULL);
-    return tv.tv_sec*(uint64_t)1000000 + tv.tv_usec;
+    t = tv.tv_sec * (size_t)1000000 + tv.tv_usec;
+#endif
+	return t;
 }
 
 static inline void SleepMicroSeconds(int32_t iMicroSeconds){

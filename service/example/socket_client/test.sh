@@ -10,6 +10,8 @@ if [ -z "${COUNT}" ]; then
     COUNT=2
 fi
 
+echo -n "" > statistics.txt
+
 PROCESS_NUM="${COUNT}"
 for ((I=1;I<=${PROCESS_NUM};I++))
 do
@@ -21,3 +23,5 @@ wait
 
 STOP_TIME=`date +%s`
 echo "TIME: $(expr ${STOP_TIME} - ${START_TIME})"
+
+python3 statistics.py

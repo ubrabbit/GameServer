@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <time.h>
@@ -51,8 +52,69 @@ size_t GetMilliSecond() {
 #define PROTO_HEADER_SIZE (sizeof(int16_t) * 2)
 #define PROTO_TAIL_SIZE (sizeof(size_t))
 
+#define STATISTICS_FILENAME "statistics.txt"
 
-static int32_t g_PacketNum = 0;
+
+void lock_file(FILE *file) {
+    int fd = fileno(file);
+    struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+
+    if (fcntl(fd, F_SETLKW, &lock) == -1) {
+        perror("fcntl");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void unlock_file(FILE *file) {
+    int fd = fileno(file);
+    struct flock lock;
+    lock.l_type = F_UNLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+
+    if (fcntl(fd, F_SETLK, &lock) == -1) {
+        perror("fcntl");
+        exit(EXIT_FAILURE);
+    }
+}
+
+typedef struct ST_STATISTICS
+{
+public:
+	size_t m_iTotalTTL;
+	size_t m_iTotalSvrTTL;
+	size_t m_iTotalSrvRecvTime;
+	size_t m_iTotalClientRecvTime;
+	size_t m_iTotalSrvLogicInternalCost;
+	size_t m_iTotalSrvNetInternalCost;
+
+	size_t m_iTotalPacketNum;
+	size_t m_iTotalSlowNum;
+	size_t m_iTotalFastNum;
+
+	void CalcStatistics(){
+		FILE *file = fopen(STATISTICS_FILENAME, "a");
+		if (file == NULL) {
+			perror("fopen");
+			exit(EXIT_FAILURE);
+		}
+
+		lock_file(file);
+		// 在这里写入数据
+		fprintf(file, "总TTL<%ld>ms 服务器TTL<%ld>ms 服务器收包耗时<%ld>ms 客户端收包耗时<%ld>ms 网络线程传递到逻辑线程开销<%ld>ms 逻辑线程传递到网络线程开销<%ld>ms 总包数<%ld> 慢包数<%ld> 快包数<%ld>\n",
+					m_iTotalTTL, m_iTotalSvrTTL, m_iTotalSrvRecvTime, m_iTotalClientRecvTime, m_iTotalSrvLogicInternalCost, m_iTotalSrvNetInternalCost, m_iTotalPacketNum, m_iTotalSlowNum, m_iTotalFastNum);
+		unlock_file(file);
+		fclose(file);
+	}
+
+}ST_STATISTICS;
+
+
 typedef struct ST_PACKET
 {
 public:
@@ -60,16 +122,12 @@ public:
 	int32_t m_iProtoNo;
 	size_t m_iClientSendTime;
 	size_t m_iClientRecvTime;
-	size_t m_iTTL;
 	bool   m_bRecvTTLSucc;
-
-	size_t m_iServerLogicInternalCost;
-	size_t m_iServerNetInternalCost;
-	size_t m_iServerRecvCost;
-	size_t m_iServerRspCost;
 
 	unsigned char m_SendData[256];
 	unsigned char m_RecvData[256];
+
+	ST_STATISTICS m_statistics;
 
 	void CalcTTL(ProtoHello::CSHelloRsp rstHelloRsp, size_t iServerInternalTimestamp)
 	{
@@ -79,27 +137,35 @@ public:
 			return;
 		}
 		m_bRecvTTLSucc = true;
-		m_iTTL = m_iClientRecvTime - m_iClientSendTime;
 
-		m_iServerRecvCost = rstHelloRsp.unpack_timestamp() - m_iClientSendTime;
-		m_iServerRspCost = m_iClientRecvTime - rstHelloRsp.unpack_timestamp();
-
-		m_iServerLogicInternalCost = rstHelloRsp.logic_timestamp() - rstHelloRsp.unpack_timestamp();
-
-		m_iServerNetInternalCost = iServerInternalTimestamp - rstHelloRsp.logic_timestamp();
+		// 统计下收包信息
+		m_statistics.m_iTotalPacketNum = 1;
+		m_statistics.m_iTotalTTL = m_iClientRecvTime - m_iClientSendTime;
+		m_statistics.m_iTotalSrvRecvTime = rstHelloRsp.unpack_timestamp() - m_iClientSendTime;
+		m_statistics.m_iTotalClientRecvTime = m_iClientRecvTime - iServerInternalTimestamp;
+		m_statistics.m_iTotalSrvLogicInternalCost = rstHelloRsp.logic_timestamp() - rstHelloRsp.unpack_timestamp();
+		m_statistics.m_iTotalSrvNetInternalCost = iServerInternalTimestamp - rstHelloRsp.logic_timestamp();
+		m_statistics.m_iTotalSvrTTL = iServerInternalTimestamp - rstHelloRsp.unpack_timestamp();
+		if (m_statistics.m_iTotalTTL >= 100)
+		{
+			m_statistics.m_iTotalSlowNum += 1;
+		}
+		else if (m_statistics.m_iTotalTTL < 50)
+		{
+			m_statistics.m_iTotalFastNum += 1;
+		}
 	}
 
 	void PrintTTL()
 	{
 		assert(m_bRecvTTLSucc);
-		printf("no<%d> proto<%d> send<%ld> recv<%ld> ttl<%ld>ms 服务器收包耗时<%ld>ms 服务器回包耗时<%ld>ms 网络线程传递到逻辑线程开销<%ld>ms 逻辑线程传递到网络线程开销<%ld>\n",
-			 m_iPacketNo, m_iProtoNo, m_iClientSendTime, m_iClientRecvTime, m_iTTL, m_iServerRecvCost, m_iServerRspCost, m_iServerLogicInternalCost, m_iServerNetInternalCost);
+		m_statistics.CalcStatistics();
 	}
 
-	ST_PACKET(int32_t iProtoNo):
+	ST_PACKET(int32_t iProtoNo, int32_t iPacketNum):
 		m_iProtoNo(iProtoNo)
 	{
-		m_iPacketNo = ++g_PacketNum;
+		m_iPacketNo = iPacketNum;
 	}
 }ST_PACKET;
 
@@ -127,39 +193,18 @@ public:
 
 	void Statistics()
 	{
-		int32_t iTotalTTL = 0;
-		int32_t iMaxPacketNo = -1;
-		int32_t iMaxTTL = -1;
 		for(auto it=m_stPacketPool.begin(); it!=m_stPacketPool.end(); it++)
 		{
-			ST_PACKET& rstPacket = it->second;
-			//rstPacket.PrintTTL();
-
-			iTotalTTL += rstPacket.m_iTTL;
-			if(iMaxTTL <0 || rstPacket.m_iTTL > (size_t)iMaxTTL)
-			{
-				iMaxPacketNo = rstPacket.m_iPacketNo;
-				iMaxTTL = rstPacket.m_iTTL;
-			}
-		}
-
-		if(iMaxPacketNo > 0)
-		{
-			auto it = m_stPacketPool.find(iMaxPacketNo);
-			if(it != m_stPacketPool.end())
-			{
-				printf("\n================    statistics start    ==============\n");
-				(it->second).PrintTTL();
-				printf("avg: %d ms\n", iTotalTTL/m_stPacketPool.size());
-				printf("\n================    statistics finished ==============\n");
-			}
+				ST_PACKET& rstPacket = it->second;
+				rstPacket.PrintTTL();
 		}
 	}
+
 };
 
 static void* recv_msg(void* ptr)
 {
-	printf("recv_msg start.\n");
+	//printf("recv_msg start.\n");
 
 	ST_CLIENT* pstClient = (ST_CLIENT*)ptr;
 	ST_CLIENT& rstClient = *pstClient;
@@ -206,7 +251,12 @@ static void* recv_msg(void* ptr)
 			memmove(rstClient.m_Buffer, rstClient.m_Buffer + wPacketSize, rstClient.m_RecvedSize - wPacketSize);
 			rstClient.m_RecvedSize -= wPacketSize;
 
-			auto it = rstClient.m_stPacketPool.find((int32_t)stHelloRsp.id());
+			auto iPacketID = (int32_t)stHelloRsp.id();
+			auto it = rstClient.m_stPacketPool.find(iPacketID);
+			if (it == rstClient.m_stPacketPool.end())
+			{
+				printf("找不到ID为 <%d> 的回包！", iPacketID);
+			}
 			assert(it != rstClient.m_stPacketPool.end());
 
 			ST_PACKET& rstPacket = it->second;
@@ -224,6 +274,7 @@ static void* recv_msg(void* ptr)
 			total++;
 		} while(rstClient.m_RecvedSize >= wPacketSize);
     }
+
 	rstClient.Statistics();
 
 	return NULL;
@@ -231,7 +282,7 @@ static void* recv_msg(void* ptr)
 
 static void* send_msg(void* ptr)
 {
-	printf("send_msg start.\n");
+	//printf("send_msg start.\n");
 
 	ST_CLIENT* pstClient = (ST_CLIENT*)ptr;
 	ST_CLIENT& rstClient = *pstClient;
@@ -241,7 +292,7 @@ static void* send_msg(void* ptr)
     {
 		int16_t wProtoNo = CS_PROTOCOL_MESSAGE_ID_HELLO;
 		ProtoHello::CSHello stHello;
-		ST_PACKET stPacket(wProtoNo);
+		ST_PACKET stPacket(wProtoNo, i);
 
 		char content[64] = {'\0'};
 		sprintf(content, "hello_string_%d", i+1);
@@ -271,7 +322,10 @@ static void* send_msg(void* ptr)
         int ret = send(rstClient.m_iSockFd, buffer, wPacketSize , 0);
         total += ret;
         //printf("ret is %d, total send is %d\n", ret, total);
+
+		usleep(1000);
     }
+
 	return NULL;
 }
 
@@ -284,14 +338,15 @@ void thread_create(ST_CLIENT* pstClient){
 	if(g_thread[0]!=0)
 	{
 		pthread_join(g_thread[0], NULL);
-		fprintf(stdout, "线程1已结束\n");
+		//fprintf(stdout, "线程1已结束\n");
 	}
 	if(g_thread[1]!=0)
 	{
 		pthread_join(g_thread[1], NULL);
-		fprintf(stdout, "线程2已结束\n");
+		//fprintf(stdout, "线程2已结束\n");
 	}
 }
+
 
 int main(int argc,char *argv[]){
 	const char *host = "localhost";
@@ -301,8 +356,6 @@ int main(int argc,char *argv[]){
 
 	ST_CLIENT* pstClient = new ST_CLIENT(sockfd);
 	thread_create(pstClient);
-
-	fprintf(stdout, "connect succ!\n");
 
 	exit(0);
 }

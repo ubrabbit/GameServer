@@ -162,17 +162,16 @@ void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pst
 		bEventFree = true;
 	}
 
+	int32_t iErrCode = evutil_socket_geterror(iClientFd);
 	if(bEventFree)
 	{
-		int32_t iErrCode = evutil_socket_geterror(iClientFd);
-		LOGINFO("client<{}><{}:{}> closed by event<{}> error<{}><{}>", (int32_t)iClientFd,
-				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
-				wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
+		//LOGINFO("client<{}><{}:{}> closed by event<{}> error<{}><{}>", (int32_t)iClientFd,
+		//		inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+		//		wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
 		CloseClient(rstServerCtx, *pstClientCtx);
 	}
 	else
 	{
-		int32_t iErrCode = evutil_socket_geterror(iClientFd);
 		LOGINFO("client<{}><{}:{}> occur event<{}> error <{}><{}>", (int32_t)iClientFd,
 				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
 				wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
