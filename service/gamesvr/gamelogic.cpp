@@ -81,7 +81,7 @@ void GameLogic::_ProcessSSNetworkPacket(Gamesvr& rstGamesvr)
     ProcessClosedConnectors();
 
     size_t dwCostTime = GetMilliSecond() - dwStartTime;
-    if(iTotalNum > 0)
+    if(iTotalNum > 0 && dwCostTime > 10)
     {
         LOGINFO("_ProcessSSNetworkPacket Finished: TotalPackets: {} Cost: {} ms", iTotalNum, dwCostTime);
     }
@@ -97,7 +97,7 @@ void GameLogic::_ProcessCSNetworkPacketHandle(Server& rstServer, ServerContext& 
         NetPacketBuffer& rstPacket = rstPacketQueue.m_vecPacketPool[i];
         gamehandle::HandleCSProto(rstServerCtx, rstPacket);
 
-        if(i > 0 && i % 1000 == 0)
+        if(i > 0 && i % 2000 == 0)
         {
             rstServer.SendNetworkPackets();
         }
@@ -118,7 +118,7 @@ int32_t GameLogic::_ProcessCSNetworkPacket(Gamesvr& rstGamesvr)
     int32_t iPacketNum = rstServerCtx.CopyPacketsFromNetToLogic();
     _ProcessCSNetworkPacketHandle(rstServer, rstServerCtx, iPacketNum, rstServerCtx.m_stNetPacketLogicQueue);
     size_t dwCostTime = GetMilliSecond() - dwStartTime;
-    if(iPacketNum > 0)
+    if(iPacketNum > 0 && dwCostTime > 10)
     {
         LOGINFO("_ProcessNetworkPacket Finished: TotalPackets: {} Cost: {} ms", iPacketNum, dwCostTime);
     }

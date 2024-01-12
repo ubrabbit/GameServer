@@ -34,7 +34,7 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 	struct sockaddr_in stClientAddr;
 	socklen_t dwAddrLen = sizeof(stClientAddr);
 	getpeername(iClientFd, (struct sockaddr*)&stClientAddr, &dwAddrLen);
-	LOGINFO("client<{}><{}:{}> accept connect.", iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
+	LOGTRACE("client<{}><{}:{}> accept connect.", iClientFd, inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port));
 
 	ServerContext* pstServerCtx = (ServerContext*)pstVoidServerCtx;
 	assert(pstServerCtx);
@@ -67,7 +67,7 @@ void OnListenerAcceptConnect(struct evconnlistener* pstListener, evutil_socket_t
 
 	LibeventClientCtx* pstClientCtx = new LibeventClientCtx(iClientFd, pstEvtObj, stClientAddr);
 	pstServerCtx->m_stClientPool.AddClient(pstClientCtx->GetClientSeq(), pstClientCtx);
-	LOGINFO("{} accept connect success.", pstClientCtx->Repr());
+	LOGTRACE("{} accept connect success.", pstClientCtx->Repr());
 
 	bufferevent_setcb(pstEvtObj, OnBufferEventRead, OnBufferEventWrite, OnBufferEventTrigger, pstServerCtx);
 	//EV_PERSIST可以让注册的事件在执行完后不被删除,直到调用event_del()删除
@@ -165,14 +165,14 @@ void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pst
 	int32_t iErrCode = evutil_socket_geterror(iClientFd);
 	if(bEventFree)
 	{
-		//LOGINFO("client<{}><{}:{}> closed by event<{}> error<{}><{}>", (int32_t)iClientFd,
-		//		inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
-		//		wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
+		LOGTRACE("client<{}><{}:{}> closed by event<{}> error<{}><{}>", (int32_t)iClientFd,
+				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
+				wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
 		CloseClient(rstServerCtx, *pstClientCtx);
 	}
 	else
 	{
-		LOGINFO("client<{}><{}:{}> occur event<{}> error <{}><{}>", (int32_t)iClientFd,
+		LOGTRACE("client<{}><{}:{}> occur event<{}> error <{}><{}>", (int32_t)iClientFd,
 				inet_ntoa(stClientAddr.sin_addr), ntohs(stClientAddr.sin_port),
 				wEvent, iErrCode, evutil_socket_error_to_string(iErrCode));
 	}
@@ -181,7 +181,7 @@ void OnBufferEventTrigger(struct bufferevent* pstEvtobj, short wEvent, void* pst
 
 void CloseClient(ServerContext& rstServerCtx, LibeventClientCtx& rstClientCtx)
 {
-	LOGINFO("client<{}><{}> closed.", rstClientCtx.GetClientFd(), rstClientCtx.GetClientSeq());
+	LOGTRACE("client<{}><{}> closed.", rstClientCtx.GetClientFd(), rstClientCtx.GetClientSeq());
 	rstServerCtx.m_stClientPool.RemoveClient(rstClientCtx.GetClientSeq());
 
 	LibeventClientCtx* pstClientCtx = &rstClientCtx;

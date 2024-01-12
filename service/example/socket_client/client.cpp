@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <endian.h>
 
+#include <mutex>
 #include <map>
 #include<iostream>
 
@@ -124,8 +125,8 @@ public:
 	size_t m_iClientRecvTime;
 	bool   m_bRecvTTLSucc;
 
-	unsigned char m_SendData[256];
-	unsigned char m_RecvData[256];
+	unsigned char m_SendData[1024];
+	unsigned char m_RecvData[1024];
 
 	ST_STATISTICS m_statistics;
 
@@ -177,6 +178,7 @@ public:
 	int32_t m_RecvedSize;
 	unsigned char m_Buffer[1024];
 
+	std::mutex m_stPacketPoolMutex; // 声明互斥锁
 	map<int32_t, ST_PACKET> m_stPacketPool;
 
 	ST_CLIENT(int32_t iSockFd):
@@ -188,6 +190,7 @@ public:
 
 	void AddPacket(ST_PACKET& rstPacket)
 	{
+		std::lock_guard<std::mutex> lock(m_stPacketPoolMutex);
 		m_stPacketPool.insert(pair<int32_t, ST_PACKET>(rstPacket.m_iPacketNo, rstPacket));
 	}
 
@@ -195,8 +198,18 @@ public:
 	{
 		for(auto it=m_stPacketPool.begin(); it!=m_stPacketPool.end(); it++)
 		{
-				ST_PACKET& rstPacket = it->second;
-				rstPacket.PrintTTL();
+			ST_PACKET& rstPacket = it->second;
+			rstPacket.PrintTTL();
+		}
+	}
+
+	void Print()
+	{
+		printf("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>> print\n");
+		for(auto it=m_stPacketPool.begin(); it!=m_stPacketPool.end(); it++)
+		{
+			ST_PACKET& rstPacket = it->second;
+			printf("\t >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> %d %s \n", rstPacket.m_iPacketNo, rstPacket.m_SendData);
 		}
 	}
 
@@ -252,10 +265,14 @@ static void* recv_msg(void* ptr)
 			rstClient.m_RecvedSize -= wPacketSize;
 
 			auto iPacketID = (int32_t)stHelloRsp.id();
+
+			std::lock_guard<std::mutex> lock(rstClient.m_stPacketPoolMutex);
 			auto it = rstClient.m_stPacketPool.find(iPacketID);
 			if (it == rstClient.m_stPacketPool.end())
 			{
-				printf("找不到ID为 <%d> 的回包！", iPacketID);
+				const string debug_string = stHelloRsp.content();
+				printf("本地找不到ID为 <%d> 的回包数据！接收到的数据： %s", iPacketID, debug_string.c_str());
+				rstClient.Print();
 			}
 			assert(it != rstClient.m_stPacketPool.end());
 
@@ -267,6 +284,8 @@ static void* recv_msg(void* ptr)
 
 			const char* content_str = content_string.c_str();
 			memcpy(rstPacket.m_RecvData, content_str, strlen(content_str));
+			//printf("1111111111111111111111: %s\n", (char*)rstPacket.m_RecvData);
+			//printf("2222222222222222222222: %s\n", (char*)rstPacket.m_SendData);
 			assert(strcmp((char*)rstPacket.m_RecvData, (char*)rstPacket.m_SendData) == 0);
 
 			rstPacket.CalcTTL(stHelloRsp, iServerInternalTimestamp);
@@ -294,8 +313,15 @@ static void* send_msg(void* ptr)
 		ProtoHello::CSHello stHello;
 		ST_PACKET stPacket(wProtoNo, i);
 
-		char content[64] = {'\0'};
-		sprintf(content, "hello_string_%d", i+1);
+		char content[512] = {'\0'};
+		int idx = 0;
+		// 填充250个字符
+		for (int j = 0; j < 500; ++j)
+		{
+			content[j] = 'A';
+			idx = j;
+		}
+		sprintf(content + idx, "%d", i);
 
 		stHello.set_id(stPacket.m_iPacketNo);
 		stHello.set_content(content);
@@ -323,7 +349,7 @@ static void* send_msg(void* ptr)
         total += ret;
         //printf("ret is %d, total send is %d\n", ret, total);
 
-		usleep(1000);
+		usleep(10 * 1000);
     }
 
 	return NULL;

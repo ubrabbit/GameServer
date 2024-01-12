@@ -39,53 +39,23 @@ public:
 
     void Init()
     {
+        m_vecPacketPool.clear();
         m_vecPacketPool.reserve(NETWORK_PACKET_BUFFER_POOL_SIZE);
-        m_vecPacketPool.shrink_to_fit();
         m_iPacketNum = 0;
     }
 
     int32_t CopyFrom(NetPacketQueue& rstPacketQueue)
     {
-        if (m_iPacketNum > 0)
-        {
-            for(int32_t i=0; i<rstPacketQueue.Size(); i++)
-            {
-                AddPacket(rstPacketQueue.m_vecPacketPool[i]);
-            }
-        }
-        else
-        {
-            m_vecPacketPool.swap(rstPacketQueue.m_vecPacketPool);
-            m_iPacketNum = rstPacketQueue.m_iPacketNum;
-        }
+        assert(m_iPacketNum == 0);
+        m_vecPacketPool.swap(rstPacketQueue.m_vecPacketPool);
+        m_iPacketNum = rstPacketQueue.m_iPacketNum;
         rstPacketQueue.Init();
         return m_iPacketNum;
     }
 
     int32_t AddPacket(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
 	{
-        if(m_iPacketNum >= (int32_t)m_vecPacketPool.size())
-        {
-            m_vecPacketPool.emplace_back(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pchBuffer);
-        }
-        else
-        {
-            m_vecPacketPool[m_iPacketNum].Init(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pchBuffer);
-        }
-		m_iPacketNum++;
-		return m_iPacketNum;
-	}
-
-    int32_t AddPacket(NetPacketBuffer& rstPacket)
-	{
-        if(m_iPacketNum >= (int32_t)m_vecPacketPool.size())
-        {
-            m_vecPacketPool.emplace_back(rstPacket);
-        }
-        else
-        {
-            m_vecPacketPool[m_iPacketNum] = rstPacket;
-        }
+        m_vecPacketPool.emplace_back(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pchBuffer);
 		m_iPacketNum++;
 		return m_iPacketNum;
 	}

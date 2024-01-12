@@ -56,6 +56,11 @@ public:
     NetPacketBuffer(const NetPacketBuffer& rstPacketBuffer)
     {
         memcpy(this, &rstPacketBuffer, sizeof(rstPacketBuffer));
+		if(NULL != m_pchBytesExtraSpace)
+		{
+			m_pchBytesExtraSpace = new BYTE[m_stHeader.m_iBufferSize];
+			memcpy(m_pchBytesExtraSpace, rstPacketBuffer.m_pchBytesExtraSpace, m_stHeader.m_iBufferSize);
+		}
     }
 
     ~NetPacketBuffer()
