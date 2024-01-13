@@ -3,10 +3,12 @@
 #include "common/utils/time.h"
 #include "defines.h"
 #include "unpack.h"
+#include "packet_pool.h"
 
 namespace network {
 
-class NetPacketHeader
+
+class NetPacketBuffer
 {
 public:
     uint64_t m_ulClientSeq;
@@ -16,27 +18,7 @@ public:
     int32_t  m_iBufferSize;
     size_t   m_dwCreateTime;
 
-    NetPacketHeader()
-    {
-        memset(this, 0, sizeof(*this));
-    }
-
-    void Init(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize)
-    {
-        m_ulClientSeq = ulClientSeq;
-        m_iSockFd = iSockFd;
-        m_iBufferSize = iBufferSize;
-        m_iProtoNo = iProtoNo;
-        m_dwCreateTime = GetMilliSecond();
-    }
-};
-
-class NetPacketBuffer
-{
-public:
-    NetPacketHeader m_stHeader;
-    BYTE   m_achBytesArray[NETWORK_PACKET_BUFFER_DEFAULT_SIZE];
-    BYTE*  m_pchBytesExtraSpace;
+    ST_PacketMemory* m_pstMemory;
 
     void construct()
     {
@@ -48,86 +30,72 @@ public:
         construct();
     }
 
-    NetPacketBuffer(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
+    NetPacketBuffer(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize, ST_PacketMemory* pstMemory, BYTE* pchBuffer)
     {
-        Init(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pchBuffer);
+        construct();
+
+        m_ulClientSeq = ulClientSeq;
+        m_iSockFd = iSockFd;
+        m_iBufferSize = iBufferSize;
+        m_iProtoNo = iProtoNo;
+        m_dwCreateTime = GetMilliSecond();
+
+        assert(pstMemory);
+        m_pstMemory = pstMemory;
+        m_pstMemory->Init(iBufferSize, pchBuffer);
     }
 
     NetPacketBuffer(const NetPacketBuffer& rstPacketBuffer)
     {
         memcpy(this, &rstPacketBuffer, sizeof(rstPacketBuffer));
-		if(NULL != m_pchBytesExtraSpace)
-		{
-			m_pchBytesExtraSpace = new BYTE[m_stHeader.m_iBufferSize];
-			memcpy(m_pchBytesExtraSpace, rstPacketBuffer.m_pchBytesExtraSpace, m_stHeader.m_iBufferSize);
-		}
-    }
-
-    ~NetPacketBuffer()
-    {
-        if(NULL != m_pchBytesExtraSpace)
-        {
-            delete[] m_pchBytesExtraSpace;
-            m_pchBytesExtraSpace = NULL;
-        }
-        construct();
-    }
-
-    void Init(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
-    {
-        construct();
-        m_stHeader.Init(ulClientSeq, iSockFd, iProtoNo, iBufferSize);
-
-		if((size_t)iBufferSize > sizeof(m_achBytesArray))
-		{
-			m_pchBytesExtraSpace = new BYTE[iBufferSize];
-			memcpy(m_pchBytesExtraSpace, pchBuffer, iBufferSize);
-		}
-		else
-		{
-			memcpy(m_achBytesArray, pchBuffer, iBufferSize);
-		}
     }
 
     int32_t GetClientFd()
     {
-        return m_stHeader.m_iSockFd;
+        return m_iSockFd;
     }
 
     uint64_t GetClientSeq()
     {
-        return m_stHeader.m_ulClientSeq;
+        return m_ulClientSeq;
     }
 
     int32_t GetProtoNo()
     {
-        return m_stHeader.m_iProtoNo;
+        return m_iProtoNo;
     }
 
     int32_t GetBufferSize()
     {
-        return m_stHeader.m_iBufferSize;
+        return m_iBufferSize;
     }
 
     int32_t GetPacketSize()
     {
-        return m_stHeader.m_iBufferSize + NETWORK_PACKET_HEADER_SIZE;
+        return m_iBufferSize + NETWORK_PACKET_HEADER_SIZE;
     }
 
     size_t GetCreateTime()
     {
-        return (size_t)m_stHeader.m_dwCreateTime;
+        return (size_t)m_dwCreateTime;
     }
 
     BYTE* GetBuffer()
     {
-        if(NULL != m_pchBytesExtraSpace)
-        {
-            return m_pchBytesExtraSpace;
-        }
-
-        return m_achBytesArray;
+        assert(m_pstMemory);
+        return m_pstMemory->GetBuffer();
     }
+
+    ST_PacketMemory* GetMemory()
+    {
+        assert(m_pstMemory);
+        return m_pstMemory;
+    }
+
+    void ReleaseMemory()
+	{
+        CPacketMemoryPool::Instance().ReleasePacketMemory(GetMemory());
+	}
 
     void PrepareHeader(BYTE (&pchBuffer)[NETWORK_PACKET_HEADER_SIZE])
     {

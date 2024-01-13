@@ -15,6 +15,7 @@ typedef unsigned char BYTE;
 #define NETWORK_SERVER_LISTEN_QUEUE_LEN    (512)       // accept queue最大长度
 
 #define NETWORK_PACKET_BUFFER_DEFAULT_SIZE (256)       // 单包默认长度
+#define NETWORK_PACKET_BUFFER_MAX_SIZE     (10240)     // 单包最大长度
 #define NETWORK_PACKET_BUFFER_READ_SIZE    (10*1024)   // 单次收包最大长度1KB
 
 // 网络收包缓冲区总大小

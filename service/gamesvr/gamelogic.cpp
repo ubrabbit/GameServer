@@ -32,6 +32,7 @@ void GameLogic::_ProcessSSNetworkPacketHandle(Owner& O, Context& Ctx, int32_t iP
     {
         NetPacketBuffer& rstPacket = rstPacketQueue.m_vecPacketPool[i];
         gamehandle::HandleSSProto(Ctx, rstPacket);
+        rstPacket.ReleaseMemory();
     }
     O.SendNetworkPackets();
 }
@@ -96,6 +97,7 @@ void GameLogic::_ProcessCSNetworkPacketHandle(Server& rstServer, ServerContext& 
     {
         NetPacketBuffer& rstPacket = rstPacketQueue.m_vecPacketPool[i];
         gamehandle::HandleCSProto(rstServerCtx, rstPacket);
+        rstPacket.ReleaseMemory();
 
         if(i > 0 && i % 2000 == 0)
         {

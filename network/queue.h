@@ -55,7 +55,8 @@ public:
 
     int32_t AddPacket(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
 	{
-        m_vecPacketPool.emplace_back(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pchBuffer);
+        auto pstMemory = CPacketMemoryPool::Instance().GetFreePacketMemory();
+        m_vecPacketPool.emplace_back(ulClientSeq, iSockFd, iProtoNo, iBufferSize, pstMemory, pchBuffer);
 		m_iPacketNum++;
 		return m_iPacketNum;
 	}

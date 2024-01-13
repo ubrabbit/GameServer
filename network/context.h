@@ -266,10 +266,15 @@ public:
 
 			int32_t iProtoNo = (int32_t)UnpackInt(ptr, (int16_t)sizeof(int16_t));
 			int32_t iBodySize = iPacketSize - NETWORK_PACKET_HEADER_SIZE;
-			if(iBodySize <= 0)
+			if(0 >= iBodySize)
 			{
 				LOGERROR("client<{}><{}> unpack packet error by body size {} not in valid range.", ulClientSeq, iClientFd, iBodySize);
 				return -2;
+			}
+			if(NETWORK_PACKET_BUFFER_MAX_SIZE < iBodySize)
+			{
+				LOGERROR("client<{}><{}> unpack packet error by body size {} exceed max.", ulClientSeq, iClientFd, iBodySize);
+				return -3;
 			}
 			AddPacketToRecvQueue(ulClientSeq, iClientFd, iProtoNo, iBodySize, ptr);
 
@@ -324,6 +329,7 @@ public:
 				continue;
 			}
 			pstClientCtx->PacketBufferSend(rstPacket);
+			rstPacket.ReleaseMemory();
 		}
 		vecNetPacketSendBuffer.clear();
 
@@ -384,6 +390,7 @@ public:
 		{
 			NetPacketBuffer& rstPacket = *it;
 			m_pstClientCtx->PacketBufferSend(rstPacket);
+			rstPacket.ReleaseMemory();
 		}
 		vecNetPacketSendBuffer.clear();
 

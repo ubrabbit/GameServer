@@ -73,7 +73,7 @@ public:
 
 	size_t PacketBufferSend(NetPacketBuffer& rstPacket)
 	{
-		int32_t iClientFd = rstPacket.m_stHeader.m_iSockFd;
+		int32_t iClientFd = rstPacket.m_iSockFd;
 
 		int32_t iSizeTotal = NETWORK_PACKET_HEADER_SIZE + rstPacket.GetBufferSize() + NETWORK_PACKET_TAIL_SIZE;
 		BYTE* buffer = (BYTE*)malloc(iSizeTotal);

@@ -223,7 +223,7 @@ static void* recv_msg(void* ptr)
 	ST_CLIENT& rstClient = *pstClient;
 
 	int32_t total = 0;
-    while(total < MAX_TEST_PACKET_NUMBER)
+    while(total < MAX_TEST_PACKET_NUMBER * 2)
     {
 		int32_t iReadLen = 10240;
 		if((size_t)iReadLen > (sizeof(rstClient.m_Buffer) -(size_t)rstClient.m_RecvedSize))
@@ -299,6 +299,49 @@ static void* recv_msg(void* ptr)
 	return NULL;
 }
 
+int do_send_msg(ST_CLIENT& rstClient, int i, int size)
+{
+	int16_t wProtoNo = CS_PROTOCOL_MESSAGE_ID_HELLO;
+	ProtoHello::CSHello stHello;
+	ST_PACKET stPacket(wProtoNo, i);
+
+	char* content = new char[size];
+	memset(content, 0, size);
+
+	int idx = 0;
+	for (int j = 0; j < (size-10); ++j)
+	{
+		content[j] = 'A';
+		idx = j;
+	}
+	sprintf(content + idx, "%d", i);
+
+	stHello.set_id(stPacket.m_iPacketNo);
+	stHello.set_content(content);
+
+	int16_t wPacketSize = (int16_t)stHello.ByteSizeLong() + PROTO_HEADER_SIZE;
+	char buffer[wPacketSize];
+	memset(buffer, 0, sizeof(buffer));
+
+	int16_t byte16 = htons(wPacketSize);
+	memcpy(buffer, &byte16, sizeof(int16_t));
+
+	byte16 = htons(wProtoNo);
+	char* prtProto = buffer + sizeof(int16_t);
+	memcpy(prtProto, &byte16, sizeof(int16_t));
+
+	char* prtData = buffer + PROTO_HEADER_SIZE;
+	stHello.SerializeToArray(prtData, (int16_t)stHello.ByteSizeLong());
+
+	memset(stPacket.m_SendData, 0, sizeof(stPacket.m_SendData));
+	memcpy(stPacket.m_SendData, content, strlen(content));
+	stPacket.m_iClientSendTime = GetMilliSecond();
+
+	rstClient.AddPacket(stPacket);
+	int ret = send(rstClient.m_iSockFd, buffer, wPacketSize , 0);
+	return ret;
+}
+
 static void* send_msg(void* ptr)
 {
 	//printf("send_msg start.\n");
@@ -309,46 +352,12 @@ static void* send_msg(void* ptr)
 	int32_t total = 0;
     for(int i=0; i<MAX_TEST_PACKET_NUMBER; i++)
     {
-		int16_t wProtoNo = CS_PROTOCOL_MESSAGE_ID_HELLO;
-		ProtoHello::CSHello stHello;
-		ST_PACKET stPacket(wProtoNo, i);
-
-		char content[512] = {'\0'};
-		int idx = 0;
-		// 填充250个字符
-		for (int j = 0; j < 500; ++j)
-		{
-			content[j] = 'A';
-			idx = j;
-		}
-		sprintf(content + idx, "%d", i);
-
-		stHello.set_id(stPacket.m_iPacketNo);
-		stHello.set_content(content);
-
-		int16_t wPacketSize = (int16_t)stHello.ByteSizeLong() + PROTO_HEADER_SIZE;
-		char buffer[wPacketSize];
-		memset(buffer, 0, sizeof(buffer));
-
-		int16_t byte16 = htons(wPacketSize);
-		memcpy(buffer, &byte16, sizeof(int16_t));
-
-		byte16 = htons(wProtoNo);
-		char* prtProto = buffer + sizeof(int16_t);
-		memcpy(prtProto, &byte16, sizeof(int16_t));
-
-		char* prtData = buffer + PROTO_HEADER_SIZE;
-		stHello.SerializeToArray(prtData, (int16_t)stHello.ByteSizeLong());
-
-		memset(stPacket.m_SendData, 0, sizeof(stPacket.m_SendData));
-		memcpy(stPacket.m_SendData, content, strlen(content));
-		stPacket.m_iClientSendTime = GetMilliSecond();
-
-		rstClient.AddPacket(stPacket);
-        int ret = send(rstClient.m_iSockFd, buffer, wPacketSize , 0);
-        total += ret;
-        //printf("ret is %d, total send is %d\n", ret, total);
-
+		total += do_send_msg(rstClient, i, 250);
+		usleep(10 * 1000);
+    }
+    for(int i=MAX_TEST_PACKET_NUMBER; i<MAX_TEST_PACKET_NUMBER * 2; i++)
+    {
+		total += do_send_msg(rstClient, i, 512);
 		usleep(10 * 1000);
     }
 
