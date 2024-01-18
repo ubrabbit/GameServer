@@ -164,11 +164,15 @@ public:
 	struct spinlock		m_stReadLock;
 	struct spinlock		m_stWriteLock;
 
-    // 网络线程收包缓存
+    // 网路线程发包预备队列
+	NetPacketQueue		m_stNetPacketRecvPrepareQueue;
+    // 网络线程收包队列
 	NetPacketQueue 		m_stNetPacketRecvQueue;
     // 逻辑线程处理缓存
 	NetPacketQueue 		m_stNetPacketLogicQueue;
 
+    // 网路线程发包预备队列
+	NetPacketQueue		m_stNetPacketSendPrepareQueue;
     // 网路线程发包队列
 	NetPacketQueue		m_stNetPacketSendQueue;
 
@@ -186,11 +190,12 @@ public:
 		spinlock_destroy(&m_stWriteLock);
 	}
 
-    void AddPacketToRecvQueue(uint64_t ulClientSeq, int32_t iClientFd, int32_t iProtoNo, int32_t iBufferSize, BYTE* pchBuffer)
+    int32_t PacketRecvPrepare()
 	{
 		spinlock_lock(&m_stReadLock);
-		m_stNetPacketRecvQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBufferSize, (BYTE*)pchBuffer);
+		int32_t iPacketRecvNum = m_stNetPacketRecvQueue.CopyFrom(m_stNetPacketRecvPrepareQueue);
 		spinlock_unlock(&m_stReadLock);
+		return iPacketRecvNum;
 	}
 
     int32_t CopyPacketsFromNetToLogic()
@@ -209,10 +214,7 @@ public:
 		BYTE chRspBuffer[iBufferSize];
 		memset(chRspBuffer, 0, sizeof(chRspBuffer));
 		PackProtobufStruct(iProtoNo, rstProto, iBufferSize, iBufferSize, chRspBuffer);
-
-		spinlock_lock(&m_stWriteLock);
-		m_stNetPacketSendQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBufferSize, (BYTE*)chRspBuffer);
-		spinlock_unlock(&m_stWriteLock);
+		m_stNetPacketSendPrepareQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBufferSize, (BYTE*)chRspBuffer);
 
 		return true;
 	}
@@ -220,7 +222,7 @@ public:
     int32_t PacketSendPrepare()
 	{
 		spinlock_lock(&m_stWriteLock);
-		int32_t iPacketRecvNum = m_stNetPacketSendQueue.Size();
+		int32_t iPacketRecvNum = m_stNetPacketSendQueue.CopyFrom(m_stNetPacketSendPrepareQueue);
 		spinlock_unlock(&m_stWriteLock);
 		return iPacketRecvNum;
 	}
@@ -276,13 +278,15 @@ public:
 				LOGERROR("client<{}><{}> unpack packet error by body size {} exceed max.", ulClientSeq, iClientFd, iBodySize);
 				return -3;
 			}
-			AddPacketToRecvQueue(ulClientSeq, iClientFd, iProtoNo, iBodySize, ptr);
+			m_stNetPacketRecvPrepareQueue.AddPacket(ulClientSeq, iClientFd, iProtoNo, iBodySize, ptr);
 
 			pchBufferPtr += iPacketSize;
 			iLeftSize -= iPacketSize;
 			iTotalPackets++;
 		}
 		rstContextBuffer.MoveBufferPtr(pchBufferPtr, iLeftSize);
+
+		PacketRecvPrepare();
 
 		size_t dwCostTime = GetMilliSecond() - dwStartTime;
 		if(iTotalPackets > 0 && dwCostTime > 10)

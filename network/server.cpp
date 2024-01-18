@@ -43,9 +43,11 @@ bool Server::StartServer(struct ST_ServerIPInfo& rstServerIPInfo)
 }
 
 
-void Server::SendNetworkPackets()
+void Server::SendNetworkPackets(ServerContext& rstServerCtx)
 {
     assert(m_pstServer);
+
+    rstServerCtx.PacketSendPrepare();
 
     struct ST_NETWORK_CMD_REQUEST stNetCmd(NETWORK_CMD_REQUEST_SEND_ALL_PACKET);
     m_pstServer->SendNetworkCmd(stNetCmd);

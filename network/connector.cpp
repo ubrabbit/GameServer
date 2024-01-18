@@ -272,15 +272,15 @@ void Connector::StartMainLoop()
 	}
 }
 
-void Connector::SendNetworkPackets()
+void Connector::SendNetworkPackets(ConnectorContext& Ctx)
 {
 	if(false == IsAlive())
 	{
 		return;
 	}
 
-	assert(m_pstConnectorCtx);
-	assert(m_pstBufferEvt);
+	Ctx.PacketSendPrepare();
+
 	// 发送命令给connector主线程，让connector主线程完成发送，避免不同线程对connector对象操作进行加锁。
 	struct ST_NETWORK_CMD_REQUEST stNetCmd(NETWORK_CMD_REQUEST_SEND_ALL_PACKET);
     for(;;)
@@ -390,7 +390,7 @@ void Connector::HeartBeat()
 		ProtoHello::SSHello stHello;
 		stHello.set_timestamp(GetMilliSecond());
 		rstConnectorContext.PacketProduceProtobufPacket(ClientSeq(), SocketFd(), SS_PROTOCOL_MESSAGE_ID_HELLO, stHello);
-		SendNetworkPackets();
+		SendNetworkPackets(rstConnectorContext);
 	}
 }
 

@@ -45,6 +45,19 @@ public:
         m_pstMemory->Init(iBufferSize, pchBuffer);
     }
 
+    NetPacketBuffer(uint64_t ulClientSeq, int32_t iSockFd, int32_t iProtoNo, int32_t iBufferSize)
+    {
+        construct();
+
+        m_ulClientSeq = ulClientSeq;
+        m_iSockFd = iSockFd;
+        m_iBufferSize = iBufferSize;
+        m_iProtoNo = iProtoNo;
+        m_dwCreateTime = GetMilliSecond();
+
+        m_pstMemory = NULL;
+    }
+
     NetPacketBuffer(const NetPacketBuffer& rstPacketBuffer)
     {
         memcpy(this, &rstPacketBuffer, sizeof(rstPacketBuffer));
@@ -91,6 +104,15 @@ public:
         assert(m_pstMemory);
         return m_pstMemory;
     }
+
+    void RequireMemory(int32_t iBufferSize, BYTE* pchBuffer)
+	{
+        ST_PacketMemory* pstMemory = CPacketMemoryPool::Instance().GetFreePacketMemory();;
+        assert(pstMemory);
+
+        m_pstMemory = pstMemory;
+        m_pstMemory->Init(iBufferSize, pchBuffer);
+	}
 
     void ReleaseMemory()
 	{

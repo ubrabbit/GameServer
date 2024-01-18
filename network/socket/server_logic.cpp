@@ -30,8 +30,9 @@ inline bool _ProcessCloseClient(struct socket_server* pstServer, ServerContext& 
 		return false;
 	}
 
-	delete pstClient;
 	rstServerCtx.m_stClientPool.RemoveClient(pstClient->GetClientSeq());
+	delete pstClient;
+
 	return true;
 }
 

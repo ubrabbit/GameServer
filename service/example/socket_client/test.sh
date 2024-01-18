@@ -16,7 +16,7 @@ PROCESS_NUM="${COUNT}"
 for ((I=1;I<=${PROCESS_NUM};I++))
 do
     {
-        timeout 30 ./socket_client
+        timeout 60 ./socket_client
     }&
 done
 wait

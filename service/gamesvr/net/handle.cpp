@@ -63,12 +63,12 @@ void _HandleSSProtoExecute(Context& ctx, NetPacketBuffer& rstPacket)
 
 void HandleSSProto(ServerContext& rstServerCtxs, NetPacketBuffer& rstPacket)
 {
-    return _HandleSSProtoExecute(rstServerCtxs, rstPacket);
+    _HandleSSProtoExecute(rstServerCtxs, rstPacket);
 }
 
 void HandleSSProto(ConnectorContext& rstConnectorCtx, NetPacketBuffer& rstPacket)
 {
-    return _HandleSSProtoExecute(rstConnectorCtx, rstPacket);
+    _HandleSSProtoExecute(rstConnectorCtx, rstPacket);
 }
 
 void HandleCSProto(ServerContext& rstServerCtx, NetPacketBuffer& rstPacket)

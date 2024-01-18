@@ -45,7 +45,7 @@ public:
     bool StartLibeventServer(struct ST_ServerIPInfo& rstServerIPInfo);
     bool StartSocketServer(struct ST_ServerIPInfo& rstServerIPInfo);
 
-    void SendNetworkPackets();
+    void SendNetworkPackets(ServerContext& rstServerCtx);
 
     template<class T>
     void StartEventLoop(T& rstServer);

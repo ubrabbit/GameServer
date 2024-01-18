@@ -76,7 +76,8 @@ public:
     void StartMainThread();
     void StartMainLoop();
 
-    void SendNetworkPackets();
+    void SendNetworkPackets(ConnectorContext& Ctx);
+
     void ProcessSendNetworkPackets();
 
     void HeartBeat();

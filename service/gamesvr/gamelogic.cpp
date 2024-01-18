@@ -34,7 +34,7 @@ void GameLogic::_ProcessSSNetworkPacketHandle(Owner& O, Context& Ctx, int32_t iP
         gamehandle::HandleSSProto(Ctx, rstPacket);
         rstPacket.ReleaseMemory();
     }
-    O.SendNetworkPackets();
+    O.SendNetworkPackets(Ctx);
 }
 
 void GameLogic::_ProcessSSNetworkPacket(Gamesvr& rstGamesvr)
@@ -98,13 +98,8 @@ void GameLogic::_ProcessCSNetworkPacketHandle(Server& rstServer, ServerContext& 
         NetPacketBuffer& rstPacket = rstPacketQueue.m_vecPacketPool[i];
         gamehandle::HandleCSProto(rstServerCtx, rstPacket);
         rstPacket.ReleaseMemory();
-
-        if(i > 0 && i % 2000 == 0)
-        {
-            rstServer.SendNetworkPackets();
-        }
     }
-    rstServer.SendNetworkPackets();
+    rstServer.SendNetworkPackets(rstServerCtx);
 }
 
 int32_t GameLogic::_ProcessCSNetworkPacket(Gamesvr& rstGamesvr)
@@ -167,7 +162,7 @@ void GameLogic::StartMainLoop(Gamesvr& rstGamesvr)
     while(true)
     {
         _ProcessOneLoop(rstGamesvr);
-        SleepMicroSeconds(100);     // 100微秒 == 1/10 毫秒
+        SleepMicroSeconds(1);     // 1微秒 == 0.001 毫秒
     }
     LOGINFO("logic mainloop finished.");
 

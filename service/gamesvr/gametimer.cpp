@@ -9,7 +9,7 @@ void GameLogicTimer::StartMainLoop(Gamesvr& rstGamesvr)
     while(true)
     {
         GameTimer::Instance().TimerUpdate();
-        SleepMicroSeconds(100);
+        SleepMicroSeconds(500);  // 0.5 ms
     }
     LOGINFO("gameimer mainloop finished.");
 }

@@ -86,6 +86,9 @@ public:
         spinlock_init(&m_stLock);
         for(size_t i = 0; i < MAX_PACKET_MEMORY_POOL_SIZE; i++)
         {
+            ST_PacketMemory& rstMemory = m_PacketMemoryPool[i];
+            rstMemory.construct();
+            rstMemory.SetIndex(i);
             m_PacketIndexFreeQueue.push_back(i);
         }
     }
@@ -100,8 +103,7 @@ public:
         ST_PacketMemory* pstMemory = NULL;
 
         spinlock_lock(&m_stLock);
-        bool bIsEmpty = m_PacketIndexFreeQueue.empty();
-        if(bIsEmpty)
+        if(m_PacketIndexFreeQueue.empty())
         {
             pstMemory = new ST_PacketMemory();
             pstMemory->SetIndex(-1);
@@ -110,10 +112,8 @@ public:
         {
             auto iIndex = m_PacketIndexFreeQueue.front();
             m_PacketIndexFreeQueue.pop_front();
-            ST_PacketMemory& rstMemory = m_PacketMemoryPool[iIndex];
-            rstMemory.construct();
-            rstMemory.SetIndex(iIndex);
-            pstMemory = &rstMemory;
+            pstMemory = &m_PacketMemoryPool[iIndex];
+            pstMemory->SetIndex(iIndex);
         }
         spinlock_unlock(&m_stLock);
 

@@ -46,9 +46,15 @@ public:
 
     int32_t CopyFrom(NetPacketQueue& rstPacketQueue)
     {
-        assert(m_iPacketNum == 0);
+        if (m_iPacketNum > 0)
+        {
+            m_vecPacketPool.insert(m_vecPacketPool.end(), rstPacketQueue.m_vecPacketPool.begin(), rstPacketQueue.m_vecPacketPool.end());
+            m_iPacketNum = m_vecPacketPool.size();
+            rstPacketQueue.Init();
+            return m_iPacketNum;
+        }
         m_vecPacketPool.swap(rstPacketQueue.m_vecPacketPool);
-        m_iPacketNum = rstPacketQueue.m_iPacketNum;
+        m_iPacketNum = m_vecPacketPool.size();
         rstPacketQueue.Init();
         return m_iPacketNum;
     }
