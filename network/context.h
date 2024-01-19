@@ -175,6 +175,8 @@ public:
 	NetPacketQueue		m_stNetPacketSendPrepareQueue;
     // 网路线程发包队列
 	NetPacketQueue		m_stNetPacketSendQueue;
+    // 网路线程发包缓存
+	NetPacketQueue		m_stNetPacketSendCache;
 
 	ST_GameSingnal      m_stSignalExec;
 
@@ -227,12 +229,11 @@ public:
 		return iPacketRecvNum;
 	}
 
-    int32_t CopyPacketsFromLogicToNet(std::vector<NetPacketBuffer>& vecNetPacketCacheQueue)
+    int32_t PacketSendPrepareCache()
 	{
 		spinlock_lock(&m_stWriteLock);
-		vecNetPacketCacheQueue.swap(m_stNetPacketSendQueue.m_vecPacketPool);
-		m_stNetPacketSendQueue.Init();
-		int32_t iPacketRecvNum = vecNetPacketCacheQueue.size();
+		m_stNetPacketSendCache.CopyFrom(m_stNetPacketSendQueue);
+		int32_t iPacketRecvNum = m_stNetPacketSendCache.Size();
 		spinlock_unlock(&m_stWriteLock);
 		return iPacketRecvNum;
 	}
@@ -320,22 +321,21 @@ public:
 	{
 		size_t dwStartTime = GetMilliSecond();
 
-		std::vector<NetPacketBuffer> vecNetPacketSendBuffer;
-		CopyPacketsFromLogicToNet(vecNetPacketSendBuffer);
-
-		int32_t iTotalPackets = vecNetPacketSendBuffer.size();
-		for(auto it=vecNetPacketSendBuffer.begin(); it!=vecNetPacketSendBuffer.end(); it++)
-		{
-			NetPacketBuffer& rstPacket = *it;
-			ClientContext* pstClientCtx = m_stClientPool.GetClient(rstPacket.GetClientSeq());
-			if(NULL == pstClientCtx)
+		int32_t iTotalPackets = PacketSendPrepareCache();
+		do {
+			for(auto it=m_stNetPacketSendCache.m_vecPacketPool.begin(); it!=m_stNetPacketSendCache.m_vecPacketPool.end(); it++)
 			{
-				continue;
+				NetPacketBuffer& rstPacket = *it;
+				ClientContext* pstClientCtx = m_stClientPool.GetClient(rstPacket.GetClientSeq());
+				if(NULL == pstClientCtx)
+				{
+					continue;
+				}
+				pstClientCtx->PacketBufferSend(rstPacket);
 			}
-			pstClientCtx->PacketBufferSend(rstPacket);
-			rstPacket.ReleaseMemory();
-		}
-		vecNetPacketSendBuffer.clear();
+			m_stNetPacketSendCache.ReleaseAllPackets();
+			iTotalPackets = PacketSendPrepareCache();
+		} while (iTotalPackets > 0);
 
 		size_t dwCostTime = GetMilliSecond() - dwStartTime;
 		if(iTotalPackets > 0 && dwCostTime > 10)
@@ -387,16 +387,16 @@ public:
 			return -1;
 		}
 
-		std::vector<NetPacketBuffer> vecNetPacketSendBuffer;
-		CopyPacketsFromLogicToNet(vecNetPacketSendBuffer);
-		int32_t iTotalPackets = vecNetPacketSendBuffer.size();
-		for(auto it=vecNetPacketSendBuffer.begin(); it!=vecNetPacketSendBuffer.end(); it++)
-		{
-			NetPacketBuffer& rstPacket = *it;
-			m_pstClientCtx->PacketBufferSend(rstPacket);
-			rstPacket.ReleaseMemory();
-		}
-		vecNetPacketSendBuffer.clear();
+		int32_t iTotalPackets = PacketSendPrepareCache();
+		do {
+			for(auto it=m_stNetPacketSendCache.m_vecPacketPool.begin(); it!=m_stNetPacketSendCache.m_vecPacketPool.end(); it++)
+			{
+				NetPacketBuffer& rstPacket = *it;
+				m_pstClientCtx->PacketBufferSend(rstPacket);
+			}
+			m_stNetPacketSendCache.ReleaseAllPackets();
+			iTotalPackets = PacketSendPrepareCache();
+		} while (iTotalPackets > 0);
 
 		size_t dwCostTime = GetMilliSecond() - dwStartTime;
 		if(iTotalPackets >= 0 && dwCostTime >= 10)

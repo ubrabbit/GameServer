@@ -67,6 +67,16 @@ public:
 		return m_iPacketNum;
 	}
 
+    void ReleaseAllPackets()
+    {
+		for(auto it=m_vecPacketPool.begin(); it!=m_vecPacketPool.end(); it++)
+		{
+			NetPacketBuffer& rstPacket = *it;
+			rstPacket.ReleaseMemory();
+		}
+		m_vecPacketPool.clear();
+    }
+
 };
 
 } // namespace network

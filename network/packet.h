@@ -107,6 +107,10 @@ public:
 
     void RequireMemory(int32_t iBufferSize, BYTE* pchBuffer)
 	{
+        if(NULL != pstMemory)
+        {
+            delete pstMemory;
+        }
         ST_PacketMemory* pstMemory = CPacketMemoryPool::Instance().GetFreePacketMemory();;
         assert(pstMemory);
 

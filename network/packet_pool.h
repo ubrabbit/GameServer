@@ -9,7 +9,7 @@
 
 namespace network {
 
-#define MAX_PACKET_MEMORY_POOL_SIZE (1024)
+#define MAX_PACKET_MEMORY_POOL_SIZE (4096)
 
 typedef struct ST_PacketMemory
 {
