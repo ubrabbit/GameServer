@@ -109,7 +109,7 @@ public:
 	{
         if(NULL != m_pstMemory)
         {
-            delete m_pstMemory;
+            CPacketMemoryPool::Instance().ReleasePacketMemory(m_pstMemory);
         }
         ST_PacketMemory* pstMemory = CPacketMemoryPool::Instance().GetFreePacketMemory();;
         assert(pstMemory);
